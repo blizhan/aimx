@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+      - name: Run tests
+        run: uv run pytest
+      - name: Run CLI smoke checks
+        run: |
+          uv run aimx --help
+          uv run aimx version
+          uv run aimx doctor
+          uv run aimx init --help
+          uv run aimx runs --help

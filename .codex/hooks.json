@@ -1,0 +1,15 @@
+{
+    "hooks": {
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "sh -lc \"osascript -e 'display notification \\\"Done 🚀🚀🚀\\\" with title \\\"提示\\\"' -e 'beep'\""
+            }
+          ]
+        }
+      ]
+    }
+  }
+  

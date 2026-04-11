@@ -1,0 +1,36 @@
+[project]
+name = "aimx"
+version = "0.1.0"
+description = "A safe CLI-first companion for native Aim"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = []
+
+[project.scripts]
+aimx = "aimx.__main__:main"
+
+[[tool.uv.index]]
+name = "tsinghua"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[dependency-groups]
+dev = [
+    "aim>=3.29.1",
+    "pytest>=8.3.5",
+]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
