@@ -7,16 +7,23 @@ import pytest
 from aimx.commands.query import QueryInvocation, normalize_repo_path
 
 
-def test_normalize_repo_path_keeps_repo_root() -> None:
-    normalized = normalize_repo_path(Path("data"))
+def test_normalize_repo_path_keeps_repo_root(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
 
-    assert normalized == Path("data")
+    normalized = normalize_repo_path(repo_root)
+
+    assert normalized == repo_root
 
 
-def test_normalize_repo_path_converts_dot_aim_directory_to_parent() -> None:
-    normalized = normalize_repo_path(Path("data/.aim"))
+def test_normalize_repo_path_converts_dot_aim_directory_to_parent(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    dot_aim = repo_root / ".aim"
+    dot_aim.mkdir(parents=True)
 
-    assert normalized == Path("data")
+    normalized = normalize_repo_path(dot_aim)
+
+    assert normalized == repo_root
 
 
 def test_normalize_repo_path_rejects_missing_path() -> None:
@@ -32,4 +39,3 @@ def test_query_invocation_rejects_unsupported_target() -> None:
             repo_path=Path("data"),
             output_json=False,
         )
-

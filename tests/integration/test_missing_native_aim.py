@@ -38,11 +38,13 @@ def test_passthrough_fails_fast_with_actionable_message_when_native_aim_is_missi
 
 
 def test_query_owned_command_still_works_when_native_aim_is_missing(
-    capsys, monkeypatch
+    capsys, monkeypatch, sample_repo_root
 ) -> None:
     monkeypatch.setenv("PATH", "")
 
-    exit_code = main(["query", "metrics", "metric.name == 'loss'", "--repo", "data"])
+    exit_code = main(
+        ["query", "metrics", "metric.name == 'loss'", "--repo", str(sample_repo_root)]
+    )
 
     captured = capsys.readouterr()
     assert exit_code == 0

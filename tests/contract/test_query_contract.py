@@ -5,9 +5,16 @@ import json
 from aimx.__main__ import main
 
 
-def test_query_metrics_json_contract_uses_stable_envelope(capfd) -> None:
+def test_query_metrics_json_contract_uses_stable_envelope(capfd, sample_repo_root) -> None:
     exit_code = main(
-        ["query", "metrics", "metric.name == 'loss'", "--repo", "data", "--json"]
+        [
+            "query",
+            "metrics",
+            "metric.name == 'loss'",
+            "--repo",
+            str(sample_repo_root),
+            "--json",
+        ]
     )
 
     captured = capfd.readouterr()
@@ -24,19 +31,25 @@ def test_query_metrics_json_contract_uses_stable_envelope(capfd) -> None:
     assert "summary" in payload["rows"][0]
 
 
-def test_query_metrics_text_contract_reports_target_repo_and_count(capfd) -> None:
-    exit_code = main(["query", "metrics", "metric.name == 'loss'", "--repo", "data"])
+def test_query_metrics_text_contract_reports_target_repo_and_count(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(
+        ["query", "metrics", "metric.name == 'loss'", "--repo", str(sample_repo_root)]
+    )
 
     captured = capfd.readouterr()
     assert exit_code == 0
     assert "target: metrics" in captured.out
-    assert "repo: data" in captured.out
+    assert f"repo: {sample_repo_root}" in captured.out
     assert "matches:" in captured.out
     assert "loss" in captured.out
 
 
-def test_query_images_json_contract_uses_stable_envelope(capfd) -> None:
-    exit_code = main(["query", "images", "images", "--repo", "data", "--json"])
+def test_query_images_json_contract_uses_stable_envelope(capfd, sample_repo_root) -> None:
+    exit_code = main(
+        ["query", "images", "images", "--repo", str(sample_repo_root), "--json"]
+    )
 
     captured = capfd.readouterr()
     payload = json.loads(captured.out)
@@ -48,8 +61,10 @@ def test_query_images_json_contract_uses_stable_envelope(capfd) -> None:
     assert payload["rows"][0]["name"] == "example"
 
 
-def test_query_invalid_expression_reports_actionable_error(capfd) -> None:
-    exit_code = main(["query", "metrics", "metric.name ==", "--repo", "data"])
+def test_query_invalid_expression_reports_actionable_error(capfd, sample_repo_root) -> None:
+    exit_code = main(
+        ["query", "metrics", "metric.name ==", "--repo", str(sample_repo_root)]
+    )
 
     captured = capfd.readouterr()
     assert exit_code == 2
