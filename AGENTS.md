@@ -75,6 +75,8 @@ Why `3.12`:
 
 ## Active Technologies
 - Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, native Aim CLI (external runtime prerequisite for delegated commands), pytest for test automation (001-aim-command-passthrough)
+- Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, Aim SDK from the dev dependency group for local development and tests (001-aim-command-passthrough)
+- Existing local Aim repositories on disk, including repo roots that contain a `.aim` metadata directory (001-aim-command-passthrough)
 
 ## Recent Changes
 - 001-aim-command-passthrough: Added Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, native Aim CLI (external runtime prerequisite for delegated commands), pytest for test automation

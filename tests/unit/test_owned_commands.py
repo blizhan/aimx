@@ -10,6 +10,7 @@ def test_render_help_lists_owned_commands_and_passthrough_boundary() -> None:
     assert "help" in help_text
     assert "version" in help_text
     assert "doctor" in help_text
+    assert "query" in help_text
     assert "delegated to native `aim`" in help_text
 
 

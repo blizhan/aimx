@@ -24,6 +24,13 @@ def test_help_flag_is_reserved_for_owned_help() -> None:
     assert route.owned_command == "help"
 
 
+def test_query_command_routes_to_owned_handler() -> None:
+    route = route_args(["query", "metrics", "metric.name == 'loss'", "--repo", "data"])
+
+    assert route.route_kind == "owned"
+    assert route.owned_command == "query"
+
+
 def test_unknown_command_routes_to_passthrough_without_reordering() -> None:
     args = ["runs", "ls", "--json"]
 

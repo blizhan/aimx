@@ -10,6 +10,7 @@ OWNED_COMMANDS = {"help", "--help", "-h", "version", "doctor"}
 class CommandRoute:
     route_kind: str
     owned_command: str | None = None
+    owned_args: list[str] | None = None
     delegated_args: list[str] | None = None
     reason: str = ""
 
@@ -23,6 +24,13 @@ def route_args(args: list[str]) -> CommandRoute:
         return CommandRoute("owned", owned_command="help", reason="reserved help command")
     if command in {"version", "doctor"}:
         return CommandRoute("owned", owned_command=command, reason="reserved aimx command")
+    if command == "query":
+        return CommandRoute(
+            "owned",
+            owned_command="query",
+            owned_args=list(args[1:]),
+            reason="reserved aimx query command",
+        )
 
     return CommandRoute(
         "passthrough",

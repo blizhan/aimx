@@ -13,9 +13,21 @@ the user's environment.
 - `aimx help`
 - `aimx version`
 - `aimx doctor`
+- `aimx query`
 
 These commands explain how `aimx` works, show the `aimx` version, and report
-whether native Aim is available for passthrough.
+whether native Aim is available for passthrough. `aimx query` adds a read-only
+CLI for querying metric and image data from a local Aim repository.
+
+Query usage:
+
+```bash
+aimx query metrics "metric.name == 'loss'" --repo data
+aimx query images "images" --repo data --json
+```
+
+`--repo` accepts either the repository root, such as `data`, or the metadata
+directory itself, such as `data/.aim`.
 
 ## What aimx delegates
 
@@ -53,4 +65,6 @@ uv run pytest
 uv run aimx --help
 uv run aimx version
 uv run aimx doctor
+uv run aimx query metrics "metric.name == 'loss'" --repo data
+uv run aimx query images "images" --repo data/.aim --json
 ```

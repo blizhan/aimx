@@ -6,6 +6,14 @@ from typing import Sequence
 import pytest
 
 
+def _sample_repo_root() -> Path:
+    return Path("data")
+
+
+def _sample_repo_dot_aim() -> Path:
+    return _sample_repo_root() / ".aim"
+
+
 @pytest.fixture
 def run_main(monkeypatch: pytest.MonkeyPatch):
     from aimx.__main__ import main
@@ -32,3 +40,19 @@ def fake_aim_script(tmp_path: Path) -> Path:
     )
     script.chmod(0o755)
     return script
+
+
+@pytest.fixture
+def sample_repo_root() -> Path:
+    repo_root = _sample_repo_root()
+    if not _sample_repo_dot_aim().exists():
+        pytest.skip("sample Aim repository is not available in this environment")
+    return repo_root
+
+
+@pytest.fixture
+def sample_repo_dot_aim() -> Path:
+    dot_aim = _sample_repo_dot_aim()
+    if not dot_aim.exists():
+        pytest.skip("sample Aim repository is not available in this environment")
+    return dot_aim

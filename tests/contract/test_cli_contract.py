@@ -14,6 +14,7 @@ def test_help_contract_describes_owned_and_passthrough_commands(capsys) -> None:
     assert "help" in captured.out
     assert "version" in captured.out
     assert "doctor" in captured.out
+    assert "query" in captured.out
     assert "delegated to native `aim`" in captured.out
 
 
