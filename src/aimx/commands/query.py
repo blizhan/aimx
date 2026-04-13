@@ -5,10 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from aim import Repo
-from aim.sdk.types import QueryReportMode
-
-
 SUPPORTED_TARGETS = {"metrics", "images"}
 
 
@@ -33,6 +29,18 @@ class QueryCommandResult:
     exit_status: int
     output: str | None = None
     error_message: str | None = None
+
+
+def load_aim_query_support():
+    try:
+        from aim import Repo
+        from aim.sdk.types import QueryReportMode
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            "`aimx query` requires the Python `aim` package in the current environment."
+        ) from error
+
+    return Repo, QueryReportMode
 
 
 def normalize_repo_path(path: Path) -> Path:
@@ -108,6 +116,7 @@ def run_query_command(args: list[str]) -> QueryCommandResult:
 
 
 def collect_query_rows(invocation: QueryInvocation, repo_path: Path) -> list[dict[str, Any]]:
+    Repo, QueryReportMode = load_aim_query_support()
     repo = Repo(str(repo_path))
 
     if invocation.target == "metrics":

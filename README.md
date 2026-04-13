@@ -6,6 +6,16 @@ It keeps a small owned command surface for diagnostics and guidance, and
 delegates everything else to the native `aim` executable already available in
 the user's environment.
 
+## Installation
+
+```bash
+# Using uv (recommended)
+uv add aimx
+
+# Or using pip
+pip install aimx
+```
+
 ## What aimx owns
 
 - `aimx`
