@@ -76,15 +76,60 @@ aimx query metrics "metric.name == 'loss'" --repo data --steps 100:500
 aimx query metrics "metric.name == 'loss'" --repo data --steps :50     # first 50 steps
 aimx query metrics "metric.name == 'loss'" --repo data --steps 100:    # from step 100 onwards
 
-# Combine short hash + step range
-aimx query metrics "run.hash=='eca37394' and metric.name=='loss'" --repo data --steps 100:300
+# Epoch range filter (mutually exclusive with --steps)
+aimx query metrics "metric.name == 'loss'" --repo data --epochs 1:10
+aimx query metrics "metric.name == 'loss'" --repo data --epochs :5
 
-# Images
-aimx query images "images" --repo data
+# Density subsampling: first N / last N / every K-th point per series
+aimx query metrics "metric.name == 'loss'" --repo data --head 20
+aimx query metrics "metric.name == 'loss'" --repo data --tail 20
+aimx query metrics "metric.name == 'loss'" --repo data --every 5
+
+# Combine short hash + step range + head
+aimx query metrics "run.hash=='eca37394' and metric.name=='loss'" --repo data --steps 100:300 --head 10
+
+# Images — metadata table only (--json / --plain / redirected stdout)
+aimx query images "images" --repo data --json
+aimx query images "images" --repo data --plain
+
+# Images — filter by epoch range (affects all output modes)
+aimx query images "images" --repo data --epochs 10:50 --plain
+aimx query images "images" --repo data --epochs :30 --json
+
+# Images — global row subsampling (applied to the sorted result list)
+aimx query images "images" --repo data --head 5
+aimx query images "images" --repo data --tail 5
+aimx query images "images" --repo data --every 3
+
+# Images — inline preview in a modern terminal (iTerm2 / Kitty / WezTerm / Ghostty)
+aimx query images "images" --repo data              # default: renders up to 6 images inline
+aimx query images "images" --repo data --max-images 20   # render more
+aimx query images "images" --repo data --max-images 0    # no cap (render all)
+
+# Combine epoch filter + head + TTY cap
+aimx query images "images" --repo data --epochs 10:50 --head 10 --max-images 4
 ```
 
 Output modes: `--json` (nested runs→metrics), `--oneline` / `--plain` (tab-separated),
-default (rich table). Additional flags: `--steps start:end`, `--no-color`, `--verbose`.
+default (rich table with inline image preview).
+Filter/sampling flags (affect all output modes): `--steps start:end | --epochs start:end`
+(mutually exclusive), `--head N`, `--tail N`, `--every K`.
+Additional flags: `--no-color`, `--verbose`, `--max-images N` (images TTY cap only).
+
+#### Inline image preview
+
+![aimx query images output preview](static/images.png)
+
+When stdout is a TTY and `aimx` detects a graphics-capable terminal, `aimx query images`
+renders matched images directly in the terminal. On plain ANSI terminals it falls back
+to half-block character art — exit code is always `0`.
+
+Terminal support is provided by [`textual-image`](https://github.com/lnqs/textual-image/tree/main#support-matrix-1).
+Confirmed working terminals include: iTerm2, Kitty, Konsole, WezTerm, foot, tmux (Sixel),
+xterm (Sixel), Windows Terminal, and VS Code integrated terminal. Warp and GNOME Terminal
+are not supported.
+
+To disable inline rendering without changing flags, redirect stdout `aimx query images > out.txt` or use `--plain` / `--json`.
 
 ### `aimx trace` — plot or export a metric time series
 

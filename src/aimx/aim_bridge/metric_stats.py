@@ -90,6 +90,26 @@ def _extract_values(metric: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray | N
     )
 
 
+def _first_iter_value(view: Any) -> Any | None:
+    """Return the first item from an iterable-like view, or None."""
+    if view is None:
+        return None
+    try:
+        return next(iter(view))
+    except (StopIteration, TypeError):
+        return None
+
+
+def _call_or_value(value: Any) -> Any:
+    """Call *value* if it's callable, otherwise return it as-is."""
+    if callable(value):
+        try:
+            return value()
+        except Exception:  # noqa: BLE001
+            return None
+    return value
+
+
 def collect_metric_series(expression: str, repo_path: Path) -> list[MetricSeries]:
     """Run the Aim query expression and return a flat list of MetricSeries.
 
@@ -163,11 +183,50 @@ def collect_image_series(expression: str, repo_path: Path) -> list[dict[str, Any
         )
         for image in query_result.iter():
             run_meta = _extract_run_meta(image.run)
+            context = image.context.to_dict()
+            epoch_value = context.get("epoch")
+            if epoch_value is None:
+                epoch_value = _first_iter_value(getattr(image, "epochs", None))
+            step_value = _call_or_value(getattr(image, "first_step", None))
+
+            # Capture the image object in a closure so the accessor is lazy.
+            # The private key ``_image_accessor`` is ONLY consumed by the
+            # rich-TTY rendering path in ``image_render.render_inline``.
+            # JSON / plain renderers MUST NOT touch this key.
+            _aim_img = image
+
+            def _make_accessor(_img: Any) -> Any:
+                def _accessor() -> Any:
+                    if hasattr(_img, "to_pil_image"):
+                        return _img.to_pil_image()
+
+                    values = getattr(_img, "values", None)
+                    if values is None:
+                        raise AttributeError(
+                            f"{type(_img).__name__} has neither to_pil_image nor values"
+                        )
+
+                    try:
+                        first_value = next(iter(values))
+                    except StopIteration as error:
+                        raise RuntimeError("image sequence is empty") from error
+
+                    if not hasattr(first_value, "to_pil_image"):
+                        raise AttributeError(
+                            f"{type(first_value).__name__} has no to_pil_image"
+                        )
+
+                    return first_value.to_pil_image()
+                return _accessor
+
             rows.append(
                 {
                     "run": run_meta,
                     "name": image.name,
-                    "context": image.context.to_dict(),
+                    "context": context,
+                    "_sort_epoch": epoch_value,
+                    "_sort_step": step_value,
+                    "_image_accessor": _make_accessor(_aim_img),
                 }
             )
 
@@ -196,6 +255,61 @@ def subsample(series: MetricSeries, *, head: int | None, tail: int | None, every
         values=series.values[indices],
         steps=series.steps[indices],
         epochs=epochs_slice,
+    )
+
+
+def parse_epoch_slice(s: str) -> tuple[float | None, float | None]:
+    """Parse a ``start:end`` slice string into inclusive float bounds for epoch filtering.
+
+    Accepts integer or float values, e.g. ``"5:50"``, ``"5.0:"``, ``":30"``.
+    """
+    if ":" not in s:
+        raise ValueError(
+            f"--epochs requires 'start:end' slice syntax (e.g. '5:50', ':30', '5:'), got: {s!r}"
+        )
+    left, right = s.split(":", 1)
+    start: float | None = None
+    end: float | None = None
+    if left.strip():
+        try:
+            start = float(left.strip())
+        except ValueError:
+            raise ValueError(f"--epochs: left bound is not a number: {left!r}")
+    if right.strip():
+        try:
+            end = float(right.strip())
+        except ValueError:
+            raise ValueError(f"--epochs: right bound is not a number: {right!r}")
+    if start is None and end is None:
+        raise ValueError("--epochs cannot be an open slice ':'; provide at least one bound.")
+    return start, end
+
+
+def filter_by_epoch_range(
+    series: "MetricSeries",
+    start: float | None,
+    end: float | None,
+) -> "MetricSeries":
+    """Return a new ``MetricSeries`` keeping only points where ``start <= epoch <= end``.
+
+    Points with ``epoch == None`` (series that has no epoch data) are all kept when
+    bounds are present — the filter is a no-op on epoch-less series.
+    Open-ended bounds (``None``) mean no constraint on that side.
+    """
+    if series.epochs is None:
+        return series
+    mask = np.ones(len(series.epochs), dtype=bool)
+    if start is not None:
+        mask &= series.epochs >= start
+    if end is not None:
+        mask &= series.epochs <= end
+    return MetricSeries(
+        run=series.run,
+        name=series.name,
+        context=series.context,
+        values=series.values[mask],
+        steps=series.steps[mask],
+        epochs=series.epochs[mask],
     )
 
 
@@ -268,3 +382,89 @@ def group_by_run(
             groups[h] = (series.run, [])
         groups[h][1].append(series)
     return [groups[h] for h in order]
+
+
+# ---------------------------------------------------------------------------
+# Image-row filter / subsample helpers
+# ---------------------------------------------------------------------------
+
+def filter_image_rows_by_step_range(
+    rows: list[dict[str, Any]],
+    start: int | None,
+    end: int | None,
+) -> list[dict[str, Any]]:
+    """Keep only image rows whose ``_sort_step`` falls within [start, end].
+
+    Rows with ``_sort_step == None`` are always kept (no step information to
+    exclude them by).
+    """
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        step = row.get("_sort_step")
+        if step is None:
+            result.append(row)
+            continue
+        try:
+            step_val = int(step)
+        except (TypeError, ValueError):
+            result.append(row)
+            continue
+        if start is not None and step_val < start:
+            continue
+        if end is not None and step_val > end:
+            continue
+        result.append(row)
+    return result
+
+
+def filter_image_rows_by_epoch_range(
+    rows: list[dict[str, Any]],
+    start: float | None,
+    end: float | None,
+) -> list[dict[str, Any]]:
+    """Keep only image rows whose ``_sort_epoch`` falls within [start, end].
+
+    Rows with ``_sort_epoch == None`` are always kept (no epoch information to
+    exclude them by).
+    """
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        epoch = row.get("_sort_epoch")
+        if epoch is None:
+            result.append(row)
+            continue
+        try:
+            epoch_val = float(epoch)
+        except (TypeError, ValueError):
+            result.append(row)
+            continue
+        if start is not None and epoch_val < start:
+            continue
+        if end is not None and epoch_val > end:
+            continue
+        result.append(row)
+    return result
+
+
+def subsample_image_rows(
+    rows: list[dict[str, Any]],
+    *,
+    head: int | None,
+    tail: int | None,
+    every: int | None,
+) -> list[dict[str, Any]]:
+    """Return a globally subsampled view of *rows* (already sorted).
+
+    Applies head → tail → every in order, mirroring ``subsample`` for metric
+    series. All three parameters are optional; passing all ``None`` is a no-op.
+    """
+    if not rows:
+        return rows
+    result = rows
+    if head is not None:
+        result = result[:head]
+    if tail is not None:
+        result = result[-tail:]
+    if every is not None and every > 1:
+        result = result[::every]
+    return result

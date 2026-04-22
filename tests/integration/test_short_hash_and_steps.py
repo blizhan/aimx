@@ -271,3 +271,106 @@ def test_trace_steps_filter_and_short_hash_work_together(
         assert series["run"]["hash"] == full_hash
         for step in series["steps"]:
             assert 1 <= step <= 200
+
+
+# ---------------------------------------------------------------------------
+# --head / --tail / --every for query metrics
+# ---------------------------------------------------------------------------
+
+
+def test_query_metrics_head_limits_step_count(capfd, sample_repo_root) -> None:
+    """--head 5 should yield at most 5 steps per metric."""
+    exit_code = main(
+        [
+            "query", "metrics",
+            "metric.name == 'loss'",
+            "--repo", str(sample_repo_root),
+            "--head", "5",
+            "--json",
+        ]
+    )
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == 0
+    for run in payload["runs"]:
+        for metric in run["metrics"]:
+            assert metric["steps"] <= 5
+
+
+def test_query_metrics_tail_limits_step_count(capfd, sample_repo_root) -> None:
+    """--tail 5 should yield at most 5 steps per metric."""
+    exit_code = main(
+        [
+            "query", "metrics",
+            "metric.name == 'loss'",
+            "--repo", str(sample_repo_root),
+            "--tail", "5",
+            "--json",
+        ]
+    )
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == 0
+    for run in payload["runs"]:
+        for metric in run["metrics"]:
+            assert metric["steps"] <= 5
+
+
+def test_query_metrics_every_reduces_step_count(capfd, sample_repo_root) -> None:
+    """--every 2 should roughly halve the step count."""
+    # baseline (no sampling)
+    exit_code_base = main(
+        ["query", "metrics", "metric.name == 'loss'", "--repo", str(sample_repo_root), "--json"]
+    )
+    payload_base = json.loads(capfd.readouterr().out)
+
+    exit_code = main(
+        [
+            "query", "metrics",
+            "metric.name == 'loss'",
+            "--repo", str(sample_repo_root),
+            "--every", "2",
+            "--json",
+        ]
+    )
+    payload = json.loads(capfd.readouterr().out)
+
+    assert exit_code_base == 0
+    assert exit_code == 0
+    # step count should be reduced
+    base_total = sum(m["steps"] for r in payload_base["runs"] for m in r["metrics"])
+    every_total = sum(m["steps"] for r in payload["runs"] for m in r["metrics"])
+    assert every_total < base_total
+
+
+def test_query_metrics_epochs_filter_works(capfd, sample_repo_root) -> None:
+    """--epochs filter should restrict rows (exits 0 even with empty results)."""
+    exit_code = main(
+        [
+            "query", "metrics",
+            "metric.name == 'loss'",
+            "--repo", str(sample_repo_root),
+            "--epochs", "1:5",
+            "--json",
+        ]
+    )
+    captured = capfd.readouterr()
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert "runs" in payload
+
+
+def test_query_metrics_steps_and_epochs_mutually_exclusive(capfd, sample_repo_root) -> None:
+    exit_code = main(
+        [
+            "query", "metrics",
+            "metric.name == 'loss'",
+            "--repo", str(sample_repo_root),
+            "--steps", "1:50",
+            "--epochs", "1:5",
+        ]
+    )
+    assert exit_code == 2
+    assert "mutually exclusive" in capfd.readouterr().err
