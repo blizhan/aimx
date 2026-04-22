@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import io
 import json
 import math
@@ -30,6 +31,16 @@ def _fmt_context(ctx: dict[str, Any]) -> str:
 
 def _short_hash(h: str) -> str:
     return h[:8]
+
+
+def _fmt_creation_time(ts: float | None) -> str:
+    if ts is None:
+        return ""
+    try:
+        local = dt.datetime.fromtimestamp(ts)
+    except (OverflowError, OSError, ValueError):
+        return ""
+    return local.strftime("%Y-%m-%d %H:%M")
 
 
 def _run_label(run: RunMeta) -> str:
@@ -86,6 +97,9 @@ def render_rich_table(
             label.append(f"  {run.experiment}", style=colors.EXPERIMENT)
         elif run.name:
             label.append(f"  {run.name}", style=colors.EXPERIMENT)
+        created_str = _fmt_creation_time(run.creation_time)
+        if created_str:
+            label.append(f"  {created_str}", style=colors.HEADER)
         console.print(label)
 
         table = Table(

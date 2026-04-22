@@ -53,6 +53,19 @@ def test_metric_query_returns_matches_from_sample_repository(
     assert "match" in captured.out
 
 
+def test_metric_query_defaults_repo_to_current_directory(
+    capfd, monkeypatch, sample_repo_root
+) -> None:
+    monkeypatch.chdir(sample_repo_root)
+
+    exit_code = main(["query", "metrics", "metric.name == 'loss'"])
+
+    captured = capfd.readouterr()
+    assert exit_code == 0
+    assert "loss" in captured.out
+    assert "match" in captured.out
+
+
 def test_metric_query_oneline_mode_returns_tab_separated_rows(
     capfd, sample_repo_root
 ) -> None:

@@ -8,9 +8,9 @@ from aimx.commands.trace import TraceInvocation, parse_trace_invocation
 
 
 def test_parse_trace_defaults() -> None:
-    inv = parse_trace_invocation(["metric.name=='loss'", "--repo", "data"])
+    inv = parse_trace_invocation(["metric.name=='loss'"])
     assert inv.expression == "metric.name=='loss'"
-    assert inv.repo_path == Path("data")
+    assert inv.repo_path == Path(".")
     assert inv.mode == "plot"
     assert inv.head is None
     assert inv.tail is None
@@ -61,9 +61,9 @@ def test_parse_trace_no_color_flag() -> None:
     assert inv.no_color is True
 
 
-def test_parse_trace_rejects_missing_repo() -> None:
-    with pytest.raises(ValueError, match="Missing required --repo"):
-        parse_trace_invocation(["metric.name=='loss'"])
+def test_parse_trace_explicit_repo_overrides_default() -> None:
+    inv = parse_trace_invocation(["metric.name=='loss'", "--repo", "data"])
+    assert inv.repo_path == Path("data")
 
 
 def test_parse_trace_rejects_unknown_flag() -> None:

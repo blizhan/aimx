@@ -27,7 +27,7 @@ class TraceInvocation:
 def parse_trace_invocation(args: list[str]) -> TraceInvocation:
     if len(args) < 1:
         raise ValueError(
-            "Usage: aimx trace <expression> --repo <path> [--table|--csv|--json]"
+            "Usage: aimx trace <expression> [--repo <path>] [--table|--csv|--json]"
             " [--steps start:end] [--head N] [--tail N] [--every K]"
             " [--width W] [--height H] [--no-color]"
         )
@@ -36,7 +36,7 @@ def parse_trace_invocation(args: list[str]) -> TraceInvocation:
     rest = args[1:]
 
     mode: Literal["plot", "table", "csv", "json"] = "plot"
-    repo_value: str | None = None
+    repo_value = "."
     head: int | None = None
     tail: int | None = None
     every: int | None = None
@@ -116,9 +116,6 @@ def parse_trace_invocation(args: list[str]) -> TraceInvocation:
             index += 2
         else:
             raise ValueError(f"Unsupported trace option: {token}")
-
-    if repo_value is None:
-        raise ValueError("Missing required --repo <path> option.")
 
     return TraceInvocation(
         expression=expression,

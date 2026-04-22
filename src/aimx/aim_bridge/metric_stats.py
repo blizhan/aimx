@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 import io
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,7 +15,7 @@ class RunMeta:
     hash: str
     experiment: str | None
     name: str | None
-    created_at: float | None
+    creation_time: float | None
 
 
 @dataclass
@@ -53,51 +54,40 @@ class MetricSeries:
 
 
 def _extract_run_meta(run: Any) -> RunMeta:
+    creation_time = getattr(run, "creation_time", None)
+    if creation_time is None:
+        created_at = getattr(run, "created_at", None)
+        if isinstance(created_at, dt.datetime):
+            if created_at.tzinfo is None:
+                creation_time = created_at.replace(tzinfo=dt.timezone.utc).timestamp()
+            else:
+                creation_time = created_at.timestamp()
+
     return RunMeta(
         hash=run.hash,
         experiment=getattr(run, "experiment", None),
         name=getattr(run, "name", None),
-        created_at=getattr(run, "created_at", None),
+        creation_time=float(creation_time) if creation_time is not None else None,
     )
 
 
 def _extract_values(metric: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-    """Extract values and step indices from an aim Metric object, sorted by step.
+    """Extract aligned values, steps, and epochs from an Aim metric.
 
-    aim 3.x stores metrics with an internal key order that does not match the
-    user-provided step sequence. ``metric.epochs.sparse_numpy()`` returns
-    ``(internal_keys, epoch_numbers)`` where the epoch numbers are the
-    meaningful step indices. ``metric.values.sparse_numpy()`` returns
-    ``(internal_keys, float_values)`` in the same internal-key order.
-
-    We sort both arrays by the epoch (step) column and return them aligned.
-    The ``epochs`` return value is ``None`` here because the epochs ARE the
-    steps (the calling code stores them as ``steps``).
+    Aim exposes the canonical series order and metadata via
+    ``metric.data.items_list()``. This preserves the distinction between
+    user-provided steps and tracked epochs, which may differ.
     """
     try:
-        # aim 3.x: (internal_keys, epoch_numbers)
-        epoch_raw = metric.epochs.sparse_numpy()
-        val_raw = metric.values.sparse_numpy()
-        epoch_arr = np.array(epoch_raw[1], dtype=float)
-        values_arr = np.array(val_raw[1], dtype=float)
-
-        # Sort both arrays by step (epoch) to get chronological order
-        sort_idx = np.argsort(epoch_arr)
-        steps = epoch_arr[sort_idx].astype(int)
-        values = values_arr[sort_idx]
-        return values, steps, None
-    except Exception:
-        pass
-
-    # Fallback: iterate over values in storage order, using sequential indices
-    try:
-        v_list: list[float] = []
-        for item in metric.values:
-            v_list.append(float(item))
-        s_list = list(range(1, len(v_list) + 1))
-        return np.array(v_list, dtype=float), np.array(s_list, dtype=int), None
-    except Exception:
+        steps, (values, epochs, _timestamps) = metric.data.items_list()
+    except ValueError:
         return np.array([], dtype=float), np.array([], dtype=int), None
+
+    return (
+        np.array(values, dtype=float),
+        np.array(steps, dtype=int),
+        np.array(epochs, dtype=float),
+    )
 
 
 def collect_metric_series(expression: str, repo_path: Path) -> list[MetricSeries]:

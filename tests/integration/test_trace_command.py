@@ -17,6 +17,19 @@ def test_trace_plot_produces_output_containing_metric_name(capfd, sample_repo_ro
     assert captured.out.strip(), "Expected non-empty plotext output"
 
 
+def test_trace_defaults_repo_to_current_directory(
+    capfd, monkeypatch, sample_repo_root
+) -> None:
+    monkeypatch.chdir(sample_repo_root)
+
+    exit_code = main(["trace", "metric.name == 'loss'", "--json"])
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload
+
+
 def test_trace_table_mode_contains_step_and_value_columns(capfd, sample_repo_root) -> None:
     exit_code = main(
         ["trace", "metric.name == 'loss'", "--repo", str(sample_repo_root), "--table"]

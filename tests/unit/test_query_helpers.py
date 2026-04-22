@@ -45,10 +45,10 @@ def test_query_invocation_rejects_unsupported_target() -> None:
 
 
 def test_parse_query_invocation_defaults() -> None:
-    inv = parse_query_invocation(["metrics", "metric.name == 'loss'", "--repo", "data"])
+    inv = parse_query_invocation(["metrics", "metric.name == 'loss'"])
     assert inv.target == "metrics"
     assert inv.expression == "metric.name == 'loss'"
-    assert inv.repo_path == Path("data")
+    assert inv.repo_path == Path(".")
     assert not inv.output_json
     assert not inv.plain
     assert not inv.no_color
@@ -80,9 +80,9 @@ def test_parse_query_invocation_verbose_flag() -> None:
     assert inv.verbose is True
 
 
-def test_parse_query_invocation_rejects_missing_repo() -> None:
-    with pytest.raises(ValueError, match="Missing required --repo"):
-        parse_query_invocation(["metrics", "metric.name == 'loss'"])
+def test_parse_query_invocation_explicit_repo_overrides_default() -> None:
+    inv = parse_query_invocation(["metrics", "metric.name == 'loss'", "--repo", "data"])
+    assert inv.repo_path == Path("data")
 
 
 def test_parse_query_invocation_rejects_unknown_flag() -> None:

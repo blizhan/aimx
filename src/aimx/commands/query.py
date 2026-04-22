@@ -46,7 +46,7 @@ def normalize_repo_path(path: Path) -> Path:
 def parse_query_invocation(args: list[str]) -> QueryInvocation:
     if len(args) < 2:
         raise ValueError(
-            "Usage: aimx query <metrics|images> <expression> --repo <path> "
+            "Usage: aimx query <metrics|images> <expression> [--repo <path>] "
             "[--json] [--oneline] [--no-color] [--verbose] [--steps start:end]"
         )
 
@@ -59,7 +59,7 @@ def parse_query_invocation(args: list[str]) -> QueryInvocation:
     no_color = False
     verbose = False
     step_slice: str | None = None
-    repo_value: str | None = None
+    repo_value = "."
 
     index = 0
     while index < len(rest):
@@ -88,9 +88,6 @@ def parse_query_invocation(args: list[str]) -> QueryInvocation:
             index += 2
         else:
             raise ValueError(f"Unsupported query option: {token}")
-
-    if repo_value is None:
-        raise ValueError("Missing required --repo <path> option.")
 
     return QueryInvocation(
         target=target,

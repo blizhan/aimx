@@ -29,8 +29,9 @@ pip install aimx
 These commands explain how `aimx` works, show the `aimx` version, and report
 whether native Aim is available for passthrough.
 
-`--repo` accepts either the repository root, such as `data`, or the metadata
-directory itself, such as `data/.aim`.
+`--repo` is optional for owned `query` and `trace` commands and defaults to the
+current directory `.`. When provided, it accepts either the repository root,
+such as `data`, or the metadata directory itself, such as `data/.aim`.
 
 ### `aimx query` — discover and summarise metrics
 
@@ -38,6 +39,9 @@ Queries an Aim repository and shows a grouped table with per-metric statistics
 (step count, last value, min/max with step).
 
 ```bash
+# If your current working directory is the Aim repo root, --repo can be omitted
+aimx query metrics "metric.name == 'loss'"
+
 # Rich table (default, colored in terminal)
 aimx query metrics "metric.name == 'loss'" --repo data
 
@@ -71,6 +75,9 @@ Fetches the full value sequence for one or more metrics and renders a curve,
 table, or structured export. Multiple matching runs are overlaid on the same plot.
 
 ```bash
+# If your current working directory is the Aim repo root, --repo can be omitted
+aimx trace "metric.name=='loss'"
+
 # Plot loss curve for a specific run — short hash transparently expanded
 aimx trace "run.hash=='eca37394' and metric.name=='loss'" --repo data
 

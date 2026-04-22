@@ -16,7 +16,7 @@ def _make_series(
     values: list[float] | None = None,
     epochs: list[float] | None = None,
 ) -> MetricSeries:
-    run = RunMeta(hash="a" * 32, experiment="exp", name=None, created_at=None)
+    run = RunMeta(hash="a" * 32, experiment="exp", name=None, creation_time=None)
     steps = steps if steps is not None else list(range(1, 6))
     values = values if values is not None else [float(i) for i in steps]
     epochs_arr = np.array(epochs, dtype=float) if epochs is not None else None

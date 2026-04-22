@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import math
 
 import numpy as np
@@ -8,13 +9,15 @@ import pytest
 from aimx.aim_bridge.metric_stats import (
     MetricSeries,
     RunMeta,
+    _extract_run_meta,
+    _extract_values,
     group_by_run,
     subsample,
 )
 
 
 def _make_run(hash_: str = "abc123", experiment: str | None = "exp") -> RunMeta:
-    return RunMeta(hash=hash_, experiment=experiment, name=None, created_at=None)
+    return RunMeta(hash=hash_, experiment=experiment, name=None, creation_time=None)
 
 
 def _make_series(
@@ -64,6 +67,93 @@ class TestMetricSeriesStats:
         assert min_step == -1
         assert math.isnan(max_val)
         assert max_step == -1
+
+
+class _FakeRun:
+    def __init__(
+        self,
+        *,
+        hash: str = "abc123",
+        experiment: str | None = "exp",
+        name: str | None = None,
+        creation_time: float | None = None,
+        created_at: dt.datetime | None = None,
+    ) -> None:
+        self.hash = hash
+        self.experiment = experiment
+        self.name = name
+        if creation_time is not None:
+            self.creation_time = creation_time
+        if created_at is not None:
+            self.created_at = created_at
+
+
+class TestExtractRunMeta:
+    def test_prefers_creation_time_timestamp(self) -> None:
+        run = _FakeRun(creation_time=1744532960.888126)
+
+        meta = _extract_run_meta(run)
+
+        assert meta.creation_time == pytest.approx(1744532960.888126)
+
+    def test_falls_back_to_created_at_datetime(self) -> None:
+        run = _FakeRun(created_at=dt.datetime(2025, 4, 13, 8, 29, 20, 888126))
+
+        meta = _extract_run_meta(run)
+
+        assert meta.creation_time == pytest.approx(1744532960.888126)
+
+
+class _FakeMetricData:
+    def __init__(
+        self,
+        steps: list[int] | None = None,
+        values: list[float] | None = None,
+        epochs: list[float] | None = None,
+        *,
+        raise_value_error: bool = False,
+    ) -> None:
+        self._steps = steps or []
+        self._values = values or []
+        self._epochs = epochs or []
+        self._raise_value_error = raise_value_error
+
+    def items_list(self) -> tuple[list[int], list[list[float]]]:
+        if self._raise_value_error:
+            raise ValueError("no data")
+        return self._steps, [self._values, self._epochs, [0.0] * len(self._steps)]
+
+
+class _FakeMetric:
+    def __init__(self, data: _FakeMetricData) -> None:
+        self.data = data
+
+
+class TestExtractValues:
+    def test_preserves_distinct_steps_and_epochs(self) -> None:
+        metric = _FakeMetric(
+            _FakeMetricData(
+                steps=[10, 20, 30],
+                values=[0.1, 0.2, 0.3],
+                epochs=[1.0, 1.0, 2.0],
+            )
+        )
+
+        values, steps, epochs = _extract_values(metric)
+
+        assert values.tolist() == pytest.approx([0.1, 0.2, 0.3])
+        assert steps.tolist() == [10, 20, 30]
+        assert epochs is not None
+        assert epochs.tolist() == pytest.approx([1.0, 1.0, 2.0])
+
+    def test_empty_metric_returns_empty_arrays(self) -> None:
+        metric = _FakeMetric(_FakeMetricData(raise_value_error=True))
+
+        values, steps, epochs = _extract_values(metric)
+
+        assert values.tolist() == []
+        assert steps.tolist() == []
+        assert epochs is None
 
 
 class TestGroupByRun:
