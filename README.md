@@ -1,9 +1,22 @@
 # aimx
 
-`aimx` is a safe, additive, CLI-first companion for native Aim.
+[CI](https://github.com/blizhan/aimx/actions/workflows/CI.yaml)
+[Publish](https://github.com/blizhan/aimx/actions/workflows/publish.yaml)
+[Python](./pyproject.toml)
+[Tests](./tests)
+[uv](https://github.com/astral-sh/uv)
+[License](./LICENSE)
+[CLI-first](./CONSTITUTION.md)
+[Read-only by default](./CONSTITUTION.md)
+[Native Aim companion](#what-aimx-delegates)
+[Passthrough](#what-aimx-delegates)
+
+![aimx trace output preview](static/trace.png)
+
+`aimx` is a safe, additive, CLI-first companion for native [Aim](https://github.com/aimhubio/aim).
 
 It keeps a small owned command surface for diagnostics and guidance, and
-delegates everything else to the native `aim` executable already available in
+delegates everything else to the native [`aim`](https://github.com/aimhubio/aim) executable already available in
 the user's environment.
 
 ## Installation
@@ -37,6 +50,8 @@ such as `data`, or the metadata directory itself, such as `data/.aim`.
 
 Queries an Aim repository and shows a grouped table with per-metric statistics
 (step count, last value, min/max with step).
+
+![aimx query output preview](static/metrics.png)
 
 ```bash
 # If your current working directory is the Aim repo root, --repo can be omitted
@@ -73,6 +88,8 @@ default (rich table). Additional flags: `--steps start:end`, `--no-color`, `--ve
 
 Fetches the full value sequence for one or more metrics and renders a curve,
 table, or structured export. Multiple matching runs are overlaid on the same plot.
+
+![aimx trace output preview](static/trace.png)
 
 ```bash
 # If your current working directory is the Aim repo root, --repo can be omitted
@@ -131,10 +148,10 @@ aimx runs ls
 - `aimx` does not replace the `aim` executable.
 - `aimx` does not modify the installed `aim` package.
 - `aimx` does not mutate `.aim` data during help, version, doctor, or
-  passthrough flows.
+passthrough flows.
 - Native Aim remains an external runtime prerequisite for delegated commands.
 - The repo's development dependency on Aim is only for local development and
-  testing convenience.
+testing convenience.
 
 ## Local development
 
@@ -152,3 +169,8 @@ uv run aimx doctor
 uv run aimx query metrics "metric.name == 'loss'" --repo data
 uv run aimx query images "images" --repo data/.aim --json
 ```
+
+## TODO
+
+- [ ] Introduce `skills` — composable, reusable workflow modules that layer higher-level experiment
+  analysis and auto-research capabilities on top of `aimx`.
