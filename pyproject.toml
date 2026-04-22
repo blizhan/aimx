@@ -1,6 +1,6 @@
 [project]
 name = "aimx"
-version = "0.2.0"
+version = "0.3.0"
 description = "A safe CLI-first companion for native Aim"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
