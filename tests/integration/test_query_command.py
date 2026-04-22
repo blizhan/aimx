@@ -260,6 +260,27 @@ def test_render_inline_no_footer_when_all_rendered() -> None:
     assert "--max-images=0" not in output
 
 
+def test_image_query_inline_preview_preserves_full_rich_table() -> None:
+    """Interactive inline previews must not hide rows beyond the preview cap."""
+    from aimx.commands.query import run_query_command
+
+    rows = _fake_image_rows(8)
+
+    with (
+        patch("aimx.aim_bridge.metric_stats.collect_image_series", return_value=rows),
+        patch("aimx.rendering.image_render.detect_capability", return_value=_fake_auto_capability()),
+        patch("aimx.rendering.image_render.render_inline", return_value="<<INLINE PREVIEW>>\n"),
+    ):
+        result = run_query_command(["images", "images", "--repo", "data"])
+
+    assert result.exit_status == 0
+    assert result.output is not None
+    assert "Repo: data" in result.output
+    assert "img0" in result.output
+    assert "img7" in result.output
+    assert "<<INLINE PREVIEW>>" in result.output
+
+
 def test_max_images_flag_default_is_six(sample_repo_root) -> None:
     """T006: --max-images default is 6 (reflected in QueryInvocation)."""
     from aimx.commands.query import parse_query_invocation

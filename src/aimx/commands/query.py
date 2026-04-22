@@ -352,8 +352,10 @@ def _run_images_query(
     if invocation.plain:
         return QueryCommandResult(exit_status=0, output=render_image_oneline(image_rows, header_info))
 
-    # TTY inline-image extension (US1/US3): only when stdout is a TTY and
-    # the rendering path is "rich" (not --json / --plain).
+    summary = render_image_rich_table(image_rows, header_info, no_color=no_color)
+
+    # TTY inline-image extension (US1/US3): preserve the full metadata table
+    # and append previews below it so rows beyond the preview cap stay visible.
     from aimx.rendering.image_render import detect_capability, plan_render, render_inline  # noqa: PLC0415
 
     capability = detect_capability()
@@ -361,18 +363,7 @@ def _run_images_query(
         plan = plan_render(image_rows, capability, max_images=invocation.max_images)
         inline = render_inline(plan)
         if inline:
-            repo = header_info.get("repo", "")
-            expr = header_info.get("expression", "")
-            total = len(image_rows)
-            shown = len(plan.rendered_rows)
-            compact_header = (
-                f"Repo: {repo}  ·  {total} matches  ·  images where {expr}"
-            )
-            if shown < total:
-                compact_header += f"  ·  previewing {shown}"
-            compact_header += "\n"
+            combined_output = summary.rstrip("\n") + "\n\n" + inline
+            return QueryCommandResult(exit_status=0, output=combined_output)
 
-            return QueryCommandResult(exit_status=0, output=compact_header + inline)
-
-    summary = render_image_rich_table(image_rows, header_info, no_color=no_color)
     return QueryCommandResult(exit_status=0, output=summary)
