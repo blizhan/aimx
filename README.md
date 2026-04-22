@@ -1,15 +1,10 @@
 # aimx
 
-[CI](https://github.com/blizhan/aimx/actions/workflows/CI.yaml)
-[Publish](https://github.com/blizhan/aimx/actions/workflows/publish.yaml)
-[Python](./pyproject.toml)
-[Tests](./tests)
-[uv](https://github.com/astral-sh/uv)
-[License](./LICENSE)
-[CLI-first](./CONSTITUTION.md)
-[Read-only by default](./CONSTITUTION.md)
-[Native Aim companion](#what-aimx-delegates)
-[Passthrough](#what-aimx-delegates)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.10%2C%3C3.13-blue.svg)](./pyproject.toml)
+[![PyPI](https://img.shields.io/pypi/v/aimx.svg?color=blue)](https://pypi.org/project/aimx/)
+[![CI](https://github.com/blizhan/aimx/actions/workflows/CI.yaml/badge.svg)](https://github.com/blizhan/aimx/actions/workflows/CI.yaml)
+[![Publish](https://github.com/blizhan/aimx/actions/workflows/publish.yaml/badge.svg)](https://github.com/blizhan/aimx/actions/workflows/publish.yaml)
 
 ![aimx trace output preview](static/trace.png)
 
