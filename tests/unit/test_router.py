@@ -31,6 +31,13 @@ def test_query_command_routes_to_owned_handler() -> None:
     assert route.owned_command == "query"
 
 
+def test_trace_command_routes_to_owned_handler() -> None:
+    route = route_args(["trace", "metric.name == 'loss'", "--repo", "data"])
+
+    assert route.route_kind == "owned"
+    assert route.owned_command == "trace"
+
+
 def test_unknown_command_routes_to_passthrough_without_reordering() -> None:
     args = ["runs", "ls", "--json"]
 

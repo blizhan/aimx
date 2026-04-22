@@ -36,8 +36,8 @@ def test_metric_query_accepts_repo_root_and_dot_aim_paths(
 
     assert root_exit_code == 0
     assert dot_aim_exit_code == 0
-    assert root_payload["count"] == dot_aim_payload["count"]
-    assert root_payload["rows"] == dot_aim_payload["rows"]
+    assert root_payload["metrics_count"] == dot_aim_payload["metrics_count"]
+    assert root_payload["runs_count"] == dot_aim_payload["runs_count"]
 
 
 def test_metric_query_returns_matches_from_sample_repository(
@@ -50,7 +50,58 @@ def test_metric_query_returns_matches_from_sample_repository(
     captured = capfd.readouterr()
     assert exit_code == 0
     assert "loss" in captured.out
-    assert "matches:" in captured.out
+    assert "match" in captured.out
+
+
+def test_metric_query_oneline_mode_returns_tab_separated_rows(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(
+        [
+            "query",
+            "metrics",
+            "metric.name == 'loss'",
+            "--repo",
+            str(sample_repo_root),
+            "--oneline",
+        ]
+    )
+
+    captured = capfd.readouterr()
+    assert exit_code == 0
+    lines = [l for l in captured.out.splitlines() if l.strip()]
+    assert lines
+    assert "loss" in captured.out
+    assert "\t" in lines[0]
+    assert "steps=" in lines[0]
+    assert "last=" in lines[0]
+
+
+def test_metric_query_json_mode_returns_nested_structure(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(
+        [
+            "query",
+            "metrics",
+            "metric.name == 'loss'",
+            "--repo",
+            str(sample_repo_root),
+            "--json",
+        ]
+    )
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["runs_count"] > 0
+    assert payload["metrics_count"] > 0
+    first_run = payload["runs"][0]
+    first_metric = first_run["metrics"][0]
+    assert first_metric["name"] == "loss"
+    # last/min/max should have real numeric values (not null) since the data exists
+    last_val = first_metric["last"]["value"]
+    assert last_val is not None
 
 
 def test_image_query_returns_matches_from_sample_repository(capfd, sample_repo_root) -> None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-OWNED_COMMANDS = {"help", "--help", "-h", "version", "doctor"}
+OWNED_COMMANDS = {"help", "--help", "-h", "version", "doctor", "query", "trace"}
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,13 @@ def route_args(args: list[str]) -> CommandRoute:
             owned_command="query",
             owned_args=list(args[1:]),
             reason="reserved aimx query command",
+        )
+    if command == "trace":
+        return CommandRoute(
+            "owned",
+            owned_command="trace",
+            owned_args=list(args[1:]),
+            reason="reserved aimx trace command",
         )
 
     return CommandRoute(

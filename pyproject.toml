@@ -4,7 +4,11 @@ version = "0.2.0"
 description = "A safe CLI-first companion for native Aim"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
-dependencies = []
+dependencies = [
+    "numpy>=1.24",
+    "plotext>=5.3",
+    "rich>=13.7",
+]
 
 [project.scripts]
 aimx = "aimx.__main__:main"

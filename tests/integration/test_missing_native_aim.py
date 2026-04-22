@@ -49,5 +49,5 @@ def test_query_owned_command_still_works_when_native_aim_is_missing(
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "target: metrics" in captured.out
-    assert "matches:" in captured.out
+    assert "Repo:" in captured.out
+    assert "match" in captured.out
