@@ -260,7 +260,7 @@ def test_render_inline_no_footer_when_all_rendered() -> None:
     assert "--max-images=0" not in output
 
 
-def test_image_query_inline_preview_preserves_full_rich_table() -> None:
+def test_image_query_inline_preview_preserves_full_rich_table(sample_repo_root) -> None:
     """Interactive inline previews must not hide rows beyond the preview cap."""
     from aimx.commands.query import run_query_command
 
@@ -271,11 +271,11 @@ def test_image_query_inline_preview_preserves_full_rich_table() -> None:
         patch("aimx.rendering.image_render.detect_capability", return_value=_fake_auto_capability()),
         patch("aimx.rendering.image_render.render_inline", return_value="<<INLINE PREVIEW>>\n"),
     ):
-        result = run_query_command(["images", "images", "--repo", "data"])
+        result = run_query_command(["images", "images", "--repo", str(sample_repo_root)])
 
     assert result.exit_status == 0
     assert result.output is not None
-    assert "Repo: data" in result.output
+    assert f"Repo: {sample_repo_root}" in result.output
     assert "img0" in result.output
     assert "img7" in result.output
     assert "<<INLINE PREVIEW>>" in result.output
