@@ -79,6 +79,8 @@ Why `3.12`:
 - Existing local Aim repositories on disk, including repo roots that contain a `.aim` metadata directory (001-aim-command-passthrough)
 - Python 3.12 for development, runtime support `>=3.10,<3.13` + `rich>=13.7`, `textual-image>=0.12.0` (already declared in (003-query-images-terminal-render)
 - Existing local Aim repositories (read-only). Image bytes are read (003-query-images-terminal-render)
+- Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, `numpy>=1.24`, `rich>=13.7`, `textual-image>=0.12.0`, existing Aim SDK usage for owned query commands; no new dependency planned (004-run-params-query)
+- Existing local Aim repositories on disk (read-only); run params are read from Aim run metadata attributes under `.aim` (004-run-params-query)
 
 ## Recent Changes
 - 001-aim-command-passthrough: Added Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, native Aim CLI (external runtime prerequisite for delegated commands), pytest for test automation

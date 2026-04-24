@@ -136,6 +136,120 @@ def test_image_query_returns_matches_from_sample_repository(capfd, sample_repo_r
     assert payload["rows"][0]["name"] == "example"
 
 
+def test_params_query_accepts_repo_root_and_dot_aim_paths(
+    capfd, sample_repo_root, sample_repo_dot_aim
+) -> None:
+    root_exit_code = main(
+        ["query", "params", "run.hash != ''", "--repo", str(sample_repo_root), "--json"]
+    )
+    root_captured = capfd.readouterr()
+    root_payload = json.loads(root_captured.out)
+
+    dot_aim_exit_code = main(
+        ["query", "params", "run.hash != ''", "--repo", str(sample_repo_dot_aim), "--json"]
+    )
+    dot_aim_captured = capfd.readouterr()
+    dot_aim_payload = json.loads(dot_aim_captured.out)
+
+    assert root_exit_code == 0
+    assert dot_aim_exit_code == 0
+    assert root_payload["runs_count"] == dot_aim_payload["runs_count"]
+    assert root_payload["param_keys"] == dot_aim_payload["param_keys"]
+
+
+def test_params_query_returns_matches_from_sample_repository(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(["query", "params", "run.hash != ''", "--repo", str(sample_repo_root)])
+
+    captured = capfd.readouterr()
+    assert exit_code == 0
+    assert "match" in captured.out
+    assert "cloud-segmentation" in captured.out
+    assert "hparam.lr" in captured.out
+
+
+def test_params_query_zero_matches_succeeds(capfd, sample_repo_root) -> None:
+    exit_code = main(
+        [
+            "query",
+            "params",
+            "run.name == 'definitely-missing-run'",
+            "--repo",
+            str(sample_repo_root),
+        ]
+    )
+
+    captured = capfd.readouterr()
+    assert exit_code == 0
+    assert "0 matches" in captured.out
+
+
+def test_params_query_selected_params_compare_across_runs(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(
+        [
+            "query",
+            "params",
+            "run.experiment == 'cloud-segmentation'",
+            "--repo",
+            str(sample_repo_root),
+            "--param",
+            "hparam.lr",
+            "--param",
+            "hparam.optimizer",
+            "--param",
+            "missing.key",
+            "--json",
+        ]
+    )
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["runs_count"] >= 3
+    assert payload["param_keys"] == ["hparam.lr", "hparam.optimizer", "missing.key"]
+    for run in payload["runs"][:3]:
+        assert "hparam.lr" in run["params"]
+        assert "hparam.optimizer" in run["params"]
+        assert "missing.key" in run["missing_params"]
+
+
+def test_params_query_experiment_filter_visible_in_json_plain_and_rich(
+    capfd, sample_repo_root
+) -> None:
+    args = [
+        "query",
+        "params",
+        "run.experiment == 'cloud-segmentation'",
+        "--repo",
+        str(sample_repo_root),
+        "--param",
+        "hparam.lr",
+    ]
+
+    rich_exit = main(args)
+    rich_captured = capfd.readouterr()
+    assert rich_exit == 0
+    assert "cloud-segmentation" in rich_captured.out
+    assert "hparam.lr" in rich_captured.out
+
+    plain_exit = main([*args, "--plain"])
+    plain_captured = capfd.readouterr()
+    assert plain_exit == 0
+    plain_lines = [line for line in plain_captured.out.splitlines() if line.strip()]
+    assert plain_lines
+    assert all("cloud-segmentation" in line for line in plain_lines)
+
+    json_exit = main([*args, "--json"])
+    json_captured = capfd.readouterr()
+    payload = json.loads(json_captured.out)
+    assert json_exit == 0
+    assert payload["runs_count"] > 0
+    assert {run["experiment"] for run in payload["runs"]} == {"cloud-segmentation"}
+
+
 def test_invalid_query_expression_fails_cleanly(capfd, sample_repo_root) -> None:
     exit_code = main(
         ["query", "metrics", "metric.name ==", "--repo", str(sample_repo_root)]

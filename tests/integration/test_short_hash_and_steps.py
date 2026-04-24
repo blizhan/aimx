@@ -19,10 +19,9 @@ from aimx.__main__ import main
 
 def _first_run_hash(sample_repo_root) -> str:
     """Return the full hash of one run known to have a 'loss' metric."""
-    from aim import Repo
+    from aimx.aim_bridge.metric_stats import collect_metric_series
 
-    repo = Repo(str(sample_repo_root))
-    return repo.list_all_runs()[0]
+    return collect_metric_series("metric.name == 'loss'", sample_repo_root)[0].run.hash
 
 
 # ---------------------------------------------------------------------------

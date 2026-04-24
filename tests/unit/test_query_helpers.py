@@ -52,6 +52,75 @@ def test_query_invocation_rejects_unsupported_target() -> None:
         )
 
 
+def test_parse_query_invocation_params_defaults() -> None:
+    inv = parse_query_invocation(["params", "run.hash != ''"])
+
+    assert inv.target == "params"
+    assert inv.expression == "run.hash != ''"
+    assert inv.repo_path == Path(".")
+    assert inv.param_keys == ()
+
+
+def test_parse_query_invocation_params_repeated_param_keys() -> None:
+    inv = parse_query_invocation(
+        [
+            "params",
+            "run.hash != ''",
+            "--repo",
+            "data",
+            "--param",
+            "hparam.lr",
+            "--param",
+            " hparam.optimizer ",
+        ]
+    )
+
+    assert inv.param_keys == ("hparam.lr", "hparam.optimizer")
+
+
+def test_parse_query_invocation_param_missing_value_raises() -> None:
+    with pytest.raises(ValueError, match="Missing value for --param"):
+        parse_query_invocation(["params", "run.hash != ''", "--param"])
+
+
+def test_parse_query_invocation_param_empty_value_raises() -> None:
+    with pytest.raises(ValueError, match="--param must not be empty"):
+        parse_query_invocation(["params", "run.hash != ''", "--param", "  "])
+
+
+def test_parse_query_invocation_param_duplicate_value_raises() -> None:
+    with pytest.raises(ValueError, match="Duplicate --param value"):
+        parse_query_invocation(
+            ["params", "run.hash != ''", "--param", "hparam.lr", "--param", " hparam.lr "]
+        )
+
+
+def test_parse_query_invocation_param_rejected_for_metrics_and_images() -> None:
+    with pytest.raises(ValueError, match="--param is only supported for query params"):
+        parse_query_invocation(["metrics", "metric.name == 'loss'", "--param", "hparam.lr"])
+
+    with pytest.raises(ValueError, match="--param is only supported for query params"):
+        parse_query_invocation(["images", "images", "--param", "hparam.lr"])
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        ["--steps", "1:10"],
+        ["--epochs", "1:10"],
+        ["--head", "1"],
+        ["--tail", "1"],
+        ["--every", "2"],
+        ["--max-images", "1"],
+    ],
+)
+def test_parse_query_invocation_params_rejects_unimplemented_query_flags(
+    extra_args: list[str],
+) -> None:
+    with pytest.raises(ValueError, match="not supported for query params"):
+        parse_query_invocation(["params", "run.hash != ''", *extra_args])
+
+
 def test_parse_query_invocation_defaults() -> None:
     inv = parse_query_invocation(["metrics", "metric.name == 'loss'"])
     assert inv.target == "metrics"

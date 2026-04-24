@@ -90,6 +90,129 @@ def test_query_images_json_contract_uses_stable_envelope(capfd, sample_repo_root
     assert payload["rows"][0]["name"] == "example"
 
 
+def test_query_params_json_contract_uses_stable_envelope(capfd, sample_repo_root) -> None:
+    exit_code = main(
+        ["query", "params", "run.hash != ''", "--repo", str(sample_repo_root), "--json"]
+    )
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["target"] == "params"
+    assert payload["expression"] == "run.hash != ''"
+    assert payload["repo"] == str(sample_repo_root)
+    assert payload["runs_count"] > 0
+    assert payload["param_keys"]
+    assert payload["runs"]
+    first_run = payload["runs"][0]
+    assert "hash" in first_run
+    assert "experiment" in first_run
+    assert "name" in first_run
+    assert "params" in first_run
+    assert "missing_params" in first_run
+
+
+def test_query_params_text_contract_reports_repo_count_and_params(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(["query", "params", "run.hash != ''", "--repo", str(sample_repo_root)])
+
+    captured = capfd.readouterr()
+    assert exit_code == 0
+    assert "Repo:" in captured.out
+    assert "match" in captured.out
+    assert "hparam.lr" in captured.out
+
+
+def test_query_params_json_contract_honors_selected_params(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(
+        [
+            "query",
+            "params",
+            "run.hash != ''",
+            "--repo",
+            str(sample_repo_root),
+            "--param",
+            "hparam.lr",
+            "--param",
+            "hparam.weight_decay",
+            "--param",
+            "missing.key",
+            "--json",
+        ]
+    )
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["param_keys"] == ["hparam.lr", "hparam.weight_decay", "missing.key"]
+    assert payload["runs"]
+    first_run = payload["runs"][0]
+    assert set(first_run["params"]) <= {"hparam.lr", "hparam.weight_decay"}
+    assert "missing.key" in first_run["missing_params"]
+
+
+def test_query_params_zero_match_json_preserves_selected_param_keys(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(
+        [
+            "query",
+            "params",
+            "run.name == 'definitely-missing-run'",
+            "--repo",
+            str(sample_repo_root),
+            "--param",
+            "hparam.lr",
+            "--param",
+            "missing.key",
+            "--json",
+        ]
+    )
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["runs_count"] == 0
+    assert payload["param_keys"] == ["hparam.lr", "missing.key"]
+    assert payload["runs"] == []
+
+
+def test_query_param_option_rejected_for_metrics_and_images(capfd, sample_repo_root) -> None:
+    metrics_exit = main(
+        [
+            "query",
+            "metrics",
+            "metric.name == 'loss'",
+            "--repo",
+            str(sample_repo_root),
+            "--param",
+            "hparam.lr",
+        ]
+    )
+    metrics_captured = capfd.readouterr()
+
+    images_exit = main(
+        [
+            "query",
+            "images",
+            "images",
+            "--repo",
+            str(sample_repo_root),
+            "--param",
+            "hparam.lr",
+        ]
+    )
+    images_captured = capfd.readouterr()
+
+    assert metrics_exit == 2
+    assert images_exit == 2
+    assert "--param is only supported for query params" in metrics_captured.err
+    assert "--param is only supported for query params" in images_captured.err
+
+
 def test_query_invalid_expression_reports_actionable_error(capfd, sample_repo_root) -> None:
     exit_code = main(
         ["query", "metrics", "metric.name ==", "--repo", str(sample_repo_root)]

@@ -5,7 +5,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-SUPPORTED_TARGETS = {"metrics", "images"}
+SUPPORTED_TARGETS = {"metrics", "images", "params"}
+PARAMS_UNSUPPORTED_QUERY_FLAGS = {
+    "--steps",
+    "--epochs",
+    "--head",
+    "--tail",
+    "--every",
+    "--max-images",
+}
 
 
 @dataclass(frozen=True)
@@ -23,6 +31,7 @@ class QueryInvocation:
     tail: int | None = None
     every: int | None = None
     max_images: int = 6
+    param_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.target not in SUPPORTED_TARGETS:
@@ -39,6 +48,8 @@ class QueryInvocation:
             raise ValueError("--steps and --epochs are mutually exclusive.")
         if self.every is not None and self.every < 1:
             raise ValueError(f"--every must be >= 1, got: {self.every!r}.")
+        if self.target != "params" and self.param_keys:
+            raise ValueError("--param is only supported for query params.")
 
 
 @dataclass(frozen=True)
@@ -81,11 +92,11 @@ def _parse_non_negative_int(flag: str, raw: str) -> int:
 def parse_query_invocation(args: list[str]) -> QueryInvocation:
     if len(args) < 2:
         raise ValueError(
-            "Usage: aimx query <metrics|images> <expression> [--repo <path>] "
+            "Usage: aimx query <metrics|images|params> <expression> [--repo <path>] "
             "[--json] [--oneline] [--no-color] [--verbose] "
             "[--steps start:end | --epochs start:end] "
             "[--head N] [--tail N] [--every K] "
-            "[--max-images N]"
+            "[--max-images N] [--param KEY]"
         )
 
     target = args[0]
@@ -103,10 +114,13 @@ def parse_query_invocation(args: list[str]) -> QueryInvocation:
     every: int | None = None
     repo_value = "."
     max_images: int = 6
+    param_keys: list[str] = []
 
     index = 0
     while index < len(rest):
         token = rest[index]
+        if target == "params" and token in PARAMS_UNSUPPORTED_QUERY_FLAGS:
+            raise ValueError(f"{token} is not supported for query params.")
         if token == "--json":
             output_json = True
             index += 1
@@ -149,6 +163,18 @@ def parse_query_invocation(args: list[str]) -> QueryInvocation:
                 raise ValueError("Missing value for --repo.")
             repo_value = rest[index + 1]
             index += 2
+        elif token == "--param":
+            if index + 1 >= len(rest):
+                raise ValueError("Missing value for --param.")
+            if target != "params":
+                raise ValueError("--param is only supported for query params.")
+            value = rest[index + 1].strip()
+            if not value:
+                raise ValueError("--param must not be empty.")
+            if value in param_keys:
+                raise ValueError(f"Duplicate --param value: {value}")
+            param_keys.append(value)
+            index += 2
         elif token == "--max-images":
             if index + 1 >= len(rest):
                 raise ValueError("Missing value for --max-images.")
@@ -177,6 +203,7 @@ def parse_query_invocation(args: list[str]) -> QueryInvocation:
         tail=tail,
         every=every,
         max_images=max_images,
+        param_keys=tuple(param_keys),
     )
 
 
@@ -245,7 +272,9 @@ def run_query_command(args: list[str]) -> QueryCommandResult:
     try:
         if invocation.target == "metrics":
             return _run_metrics_query(invocation, normalized_repo_path, header_info, effective_no_color)
-        return _run_images_query(invocation, normalized_repo_path, header_info, effective_no_color)
+        if invocation.target == "images":
+            return _run_images_query(invocation, normalized_repo_path, header_info, effective_no_color)
+        return _run_params_query(invocation, normalized_repo_path, header_info, effective_no_color)
     except RuntimeError as error:
         return QueryCommandResult(exit_status=2, error_message=str(error))
     except Exception as error:
@@ -367,3 +396,28 @@ def _run_images_query(
             return QueryCommandResult(exit_status=0, output=combined_output)
 
     return QueryCommandResult(exit_status=0, output=summary)
+
+
+def _run_params_query(
+    invocation: QueryInvocation,
+    repo_path: Path,
+    header_info: dict[str, Any],
+    no_color: bool,
+) -> QueryCommandResult:
+    from aimx.aim_bridge.run_params import collect_run_params
+    from aimx.rendering.params_views import (
+        render_params_json,
+        render_params_oneline,
+        render_params_rich_table,
+    )
+
+    header_info = {**header_info, "param_keys": invocation.param_keys}
+    rows = collect_run_params(invocation.expression, repo_path, invocation.param_keys)
+    if invocation.output_json:
+        return QueryCommandResult(exit_status=0, output=render_params_json(rows, header_info))
+    if invocation.plain:
+        return QueryCommandResult(exit_status=0, output=render_params_oneline(rows, header_info))
+    return QueryCommandResult(
+        exit_status=0,
+        output=render_params_rich_table(rows, header_info, no_color=no_color),
+    )

@@ -1,187 +1,249 @@
 # aimx
 
+![aimx trace output preview](static/trace.png)
+
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10%2C%3C3.13-blue.svg)](./pyproject.toml)
 [![PyPI](https://img.shields.io/pypi/v/aimx.svg?color=blue)](https://pypi.org/project/aimx/)
 [![CI](https://github.com/blizhan/aimx/actions/workflows/CI.yaml/badge.svg)](https://github.com/blizhan/aimx/actions/workflows/CI.yaml)
 [![Publish](https://github.com/blizhan/aimx/actions/workflows/publish.yaml/badge.svg)](https://github.com/blizhan/aimx/actions/workflows/publish.yaml)
 
-![aimx trace output preview](static/trace.png)
-
 `aimx` is a safe, additive, CLI-first companion for native [Aim](https://github.com/aimhubio/aim).
 
-It keeps a small owned command surface for diagnostics and guidance, and
-delegates everything else to the native [`aim`](https://github.com/aimhubio/aim) executable already available in
+It adds focused terminal workflows for querying, comparing, previewing, and
+exporting Aim run data. Commands that `aimx` does not own are delegated to the
+native [`aim`](https://github.com/aimhubio/aim) executable already available in
 the user's environment.
 
-## Installation
+
+## Quick Start
+
+### Install
 
 ```bash
-# Using uv (recommended)
+# install into the current project
 uv add aimx
 
-# Or using pip
+# Or use pip
 pip install aimx
 ```
 
-## What aimx owns
+### Install the agent skill
 
-- `aimx`
-- `aimx --help`
-- `aimx help`
-- `aimx version`
-- `aimx doctor`
-- `aimx query`
-- `aimx trace`
+This repository also includes an `aimx` skill for agent workflows such as
+`autoresearch` `log_experiment`, where an LLM needs to collect run parameters,
+metric summaries, traces, and image evidence from a local Aim repository.
 
-These commands explain how `aimx` works, show the `aimx` version, and report
-whether native Aim is available for passthrough.
+```bash
+npx skills install blizhan/aimx
+```
 
-`--repo` is optional for owned `query` and `trace` commands and defaults to the
-current directory `.`. When provided, it accepts either the repository root,
-such as `data`, or the metadata directory itself, such as `data/.aim`.
+After installation, invoke the skill as `$aimx`. The skill assumes the `aimx`
+CLI is available in the environment that performs the experiment inspection.
 
-Both `aimx query` and `aimx trace` accept **AimQL** expressions (Aim's native
-Python-like query language) as their filter argument — e.g.
-`"metric.name == 'loss' and run.hparams.learning_rate > 0.001"`. For the full
-syntax, supported properties (`run.*`, `metric.*`, `images.*`), and security
-restrictions, see the upstream docs:
-[Aim — Query language basics](https://aimstack.readthedocs.io/en/latest/using/search.html).
+### Check your environment
 
-### `aimx query` — discover and summarise metrics
+```bash
+aimx --help
+aimx version
+aimx doctor
+```
 
-Queries an Aim repository and shows a grouped table with per-metric statistics
-(step count, last value, min/max with step).
+### Query an Aim repository
+
+If your current working directory is an Aim repo root, `--repo` can be omitted.
+When provided, `--repo` accepts either the repository root, such as `data`, or
+the metadata directory itself, such as `data/.aim`.
+
+```bash
+# Summarize matching metrics
+aimx query metrics "metric.name == 'loss'" --repo data
+
+# Preview matching images in supported terminals
+aimx query images "images" --repo data
+
+# Compare run parameters across matching runs
+aimx query params "run.hash != ''" --repo data
+
+# Plot a metric time series
+aimx trace "metric.name == 'loss'" --repo data
+```
+
+## Features
+
+- **Safe native Aim coexistence**: `aimx` does not replace the `aim` executable
+  or modify installed Aim packages.
+- **Explicit command ownership**: owned `aimx` commands stay small and focused;
+  everything else is passed through to native Aim.
+- **Scriptable query output**: query metrics, images, and run params as rich
+  terminal tables, plain text, or JSON.
+- **Terminal image previews**: render Aim image artifacts inline when the
+  terminal supports graphics, with a safe text fallback.
+- **Metric tracing**: plot, tabulate, or export matching time series with step
+  filters and sampling controls.
+- **Read-only defaults**: inspection, query, diagnostic, and passthrough flows
+  do not mutate `.aim` repository data.
+
+## Commands
+
+### Owned commands
+
+| Command | Purpose |
+| --- | --- |
+| `aimx` / `aimx --help` / `aimx help` | Show CLI help and owned command guidance. |
+| `aimx version` | Print the installed `aimx` version. |
+| `aimx doctor` | Check whether native Aim is available for passthrough. |
+| `aimx query metrics` | Summarize matching metric series. |
+| `aimx query images` | List and optionally preview matching image records. |
+| `aimx query params` | Compare run-level parameters across matching runs. |
+| `aimx trace` | Plot, tabulate, or export metric time series. |
+
+Both `aimx query` and `aimx trace` accept **AimQL** expressions as their filter
+argument. AimQL is Aim's native Python-like query language.
+
+```bash
+aimx query metrics "metric.name == 'loss' and run.hparams.learning_rate > 0.001"
+```
+
+For syntax, supported properties (`run.*`, `metric.*`, `images.*`), and
+security restrictions, see
+[Aim - Query language basics](https://aimstack.readthedocs.io/en/latest/using/search.html).
+
+### Query metrics
+
+`aimx query metrics` groups matching metric series by run and reports useful
+statistics such as step count, last value, min value, and max value.
 
 ![aimx query output preview](static/metrics.png)
 
 ```bash
-# If your current working directory is the Aim repo root, --repo can be omitted
-aimx query metrics "metric.name == 'loss'"
-
-# Rich table (default, colored in terminal)
+# Rich table, colored in terminals by default
 aimx query metrics "metric.name == 'loss'" --repo data
 
 # Short run hashes are transparently expanded to full hashes
-aimx query metrics "run.hash=='eca37394' and metric.name=='loss'" --repo data
+aimx query metrics "run.hash == 'eca37394' and metric.name == 'loss'" --repo data
 
-# Tab-separated plain text, suitable for awk/grep
+# Tab-separated output for shell tools
 aimx query metrics "metric.name == 'loss'" --repo data --oneline
 
-# Structured JSON (nested by run)
+# Structured JSON, nested by run
 aimx query metrics "metric.name == 'loss'" --repo data --json
 
-# Step range filter — statistics recomputed within the window
+# Step or epoch windows
 aimx query metrics "metric.name == 'loss'" --repo data --steps 100:500
-aimx query metrics "metric.name == 'loss'" --repo data --steps :50     # first 50 steps
-aimx query metrics "metric.name == 'loss'" --repo data --steps 100:    # from step 100 onwards
-
-# Epoch range filter (mutually exclusive with --steps)
 aimx query metrics "metric.name == 'loss'" --repo data --epochs 1:10
-aimx query metrics "metric.name == 'loss'" --repo data --epochs :5
 
-# Density subsampling: first N / last N / every K-th point per series
+# Density sampling
 aimx query metrics "metric.name == 'loss'" --repo data --head 20
 aimx query metrics "metric.name == 'loss'" --repo data --tail 20
 aimx query metrics "metric.name == 'loss'" --repo data --every 5
-
-# Combine short hash + step range + head
-aimx query metrics "run.hash=='eca37394' and metric.name=='loss'" --repo data --steps 100:300 --head 10
-
-# Images — metadata table only (--json / --plain / redirected stdout)
-aimx query images "images" --repo data --json
-aimx query images "images" --repo data --plain
-
-# Images — filter by epoch range (affects all output modes)
-aimx query images "images" --repo data --epochs 10:50 --plain
-aimx query images "images" --repo data --epochs :30 --json
-
-# Images — global row subsampling (applied to the sorted result list)
-aimx query images "images" --repo data --head 5
-aimx query images "images" --repo data --tail 5
-aimx query images "images" --repo data --every 3
-
-# Images — inline preview in a modern terminal (iTerm2 / Kitty / WezTerm / Ghostty)
-aimx query images "images" --repo data              # default: renders up to 6 images inline
-aimx query images "images" --repo data --max-images 20   # render more
-aimx query images "images" --repo data --max-images 0    # no cap (render all)
-
-# Combine epoch filter + head + TTY cap
-aimx query images "images" --repo data --epochs 10:50 --head 10 --max-images 4
 ```
 
-Output modes: `--json` (nested runs→metrics), `--oneline` / `--plain` (tab-separated),
-default (rich table with inline image preview).
-Filter/sampling flags (affect all output modes): `--steps start:end | --epochs start:end`
-(mutually exclusive), `--head N`, `--tail N`, `--every K`.
-Additional flags: `--no-color`, `--verbose`, `--max-images N` (images TTY cap only).
+### Query images
 
-#### Inline image preview
+`aimx query images` reads image metadata and, when possible, renders matched
+images directly in the terminal.
 
 ![aimx query images output preview](static/images.png)
 
-When stdout is a TTY and `aimx` detects a graphics-capable terminal, `aimx query images`
-renders matched images directly in the terminal. On plain ANSI terminals it falls back
-to half-block character art — exit code is always `0`.
-
-Terminal support is provided by [`textual-image`](https://github.com/lnqs/textual-image/tree/main#support-matrix-1).
-Confirmed working terminals include: iTerm2, Kitty, Konsole, WezTerm, foot, tmux (Sixel),
-xterm (Sixel), Windows Terminal, and VS Code integrated terminal. Warp and GNOME Terminal
-are not supported.
-
-To disable inline rendering without changing flags, redirect stdout `aimx query images > out.txt` or use `--plain` / `--json`.
-
-### `aimx trace` — plot or export a metric time series
-
-Fetches the full value sequence for one or more metrics and renders a curve,
-table, or structured export. Multiple matching runs are overlaid on the same plot.
-
-![aimx trace output preview](static/trace.png)
-
 ```bash
-# If your current working directory is the Aim repo root, --repo can be omitted
-aimx trace "metric.name=='loss'"
+# Inline preview in modern terminals
+aimx query images "images" --repo data
 
-# Plot loss curve for a specific run — short hash transparently expanded
-aimx trace "run.hash=='eca37394' and metric.name=='loss'" --repo data
+# Metadata output only
+aimx query images "images" --repo data --plain
+aimx query images "images" --repo data --json
 
-# Compare train vs val loss across all runs
-aimx trace "metric.name=='loss'" --repo data
+# Filter and sample matching image rows
+aimx query images "images" --repo data --epochs 10:50 --head 10
 
-# Step-by-step table
-aimx trace "metric.name=='loss'" --repo data --table
-
-# CSV export
-aimx trace "metric.name=='loss'" --repo data --csv > loss.csv
-
-# JSON with full value arrays
-aimx trace "metric.name=='loss'" --repo data --json
-
-# Step range filter (hard constraint, applied before sampling)
-aimx trace "metric.name=='loss'" --repo data --steps 100:500
-aimx trace "metric.name=='loss'" --repo data --steps :50      # first 50 steps
-aimx trace "metric.name=='loss'" --repo data --steps 100:     # step 100 onwards
-
-# Combine step filter + JSON
-aimx trace "run.hash=='eca37394' and metric.name=='loss'" --repo data --steps 1:200 --json
-
-# Limit to first 50 points per series (density subsampling, applied after --steps)
-aimx trace "metric.name=='loss'" --repo data --head 50
-
-# Sample every 10th point
-aimx trace "metric.name=='loss'" --repo data --every 10
+# Control the TTY preview cap
+aimx query images "images" --repo data --max-images 20
+aimx query images "images" --repo data --max-images 0
 ```
 
-Output modes: default (plotext chart), `--table`, `--csv`, `--json`.
-Step filtering: `--steps start:end` (inclusive, open-ended sides allowed).
-Sampling: `--head N`, `--tail N`, `--every K`.
-Display: `--width W`, `--height H`, `--no-color`.
+When stdout is a TTY and `aimx` detects a graphics-capable terminal, matched
+images render inline. On plain ANSI terminals, `aimx` falls back to half-block
+character art and still exits with code `0`.
 
-## What aimx delegates
+Terminal rendering is provided by
+[`textual-image`](https://github.com/lnqs/textual-image/tree/main#support-matrix-1).
+Confirmed working terminals include iTerm2, Kitty, Konsole, WezTerm, foot, tmux
+(Sixel), xterm (Sixel), Windows Terminal, and VS Code integrated terminal. Warp
+and GNOME Terminal are not supported.
+
+To disable inline rendering, redirect stdout or use `--plain` / `--json`.
+
+### Query run params
+
+`aimx query params` reads run-level Aim metadata without modifying the
+repository. By default, it shows a readable set of discovered parameter columns.
+Use `--param KEY` one or more times to align specific flattened params across
+matching runs.
+
+![aimx query params output preview](static/params.png)
+
+```bash
+# Compare discovered params across all matching runs
+aimx query params "run.hash != ''" --repo data
+
+# Select specific params
+aimx query params "run.experiment == 'cloud-segmentation'" --repo data \
+  --param hparam.lr \
+  --param hparam.optimizer
+
+# Script-friendly output
+aimx query params "run.experiment == 'cloud-segmentation'" --repo data --plain
+aimx query params "run.experiment == 'cloud-segmentation'" --repo data --json
+
+# Filter with AimQL run fields
+aimx query params "run.hparam.lr == 0.0001" --repo data --param hparam.lr
+```
+
+Missing selected params are displayed as `-` in terminal/plain output and listed
+under `missing_params` in JSON.
+
+### Trace metrics
+
+`aimx trace` fetches the full value sequence for one or more matching metrics
+and renders a curve, table, CSV, or JSON export. Multiple matching runs are
+overlaid on the same plot.
+
+```bash
+# Plot all matching loss curves
+aimx trace "metric.name == 'loss'" --repo data
+
+# Plot one run by short hash
+aimx trace "run.hash == 'eca37394' and metric.name == 'loss'" --repo data
+
+# Step-by-step table
+aimx trace "metric.name == 'loss'" --repo data --table
+
+# CSV or JSON export
+aimx trace "metric.name == 'loss'" --repo data --csv > loss.csv
+aimx trace "metric.name == 'loss'" --repo data --json
+
+# Step filtering and sampling
+aimx trace "metric.name == 'loss'" --repo data --steps 100:500
+aimx trace "metric.name == 'loss'" --repo data --head 50
+aimx trace "metric.name == 'loss'" --repo data --every 10
+```
+
+Output modes: default plot, `--table`, `--csv`, `--json`.
+Display controls: `--width W`, `--height H`, `--no-color`.
+
+### Common query options
+
+- Output: `--json`, `--oneline` / `--plain`, or the default rich terminal view.
+- Filtering: `--steps start:end` or `--epochs start:end` where supported.
+- Sampling: `--head N`, `--tail N`, `--every K`.
+- Images: `--max-images N` controls the TTY preview cap.
+- Params: `--param KEY` can be repeated to select parameter columns.
+- Diagnostics: `--verbose` prints additional details where supported.
+
+### Native Aim passthrough
 
 Any unowned command path is passed through to native `aim`.
-
-Examples:
 
 ```bash
 aimx up
@@ -190,24 +252,41 @@ aimx runs --help
 aimx runs ls
 ```
 
-## Runtime contract
+## Documentation
+
+- [AimQL query language](https://aimstack.readthedocs.io/en/latest/using/search.html)
+  explains the filter syntax used by `aimx query` and `aimx trace`.
+- [textual-image terminal support](https://github.com/lnqs/textual-image/tree/main#support-matrix-1)
+  lists terminals that can render inline images.
+- [CONSTITUTION.md](./CONSTITUTION.md) documents the project safety and scope
+  rules.
+- [specs/](./specs) contains feature specs, plans, contracts, and quickstarts
+  for implemented `aimx` capabilities.
+- [TODO.md](./TODO.md) tracks early roadmap notes.
+
+## Runtime Contract
 
 - `aimx` does not replace the `aim` executable.
 - `aimx` does not modify the installed `aim` package.
-- `aimx` does not mutate `.aim` data during help, version, doctor, or
-passthrough flows.
+- `aimx` does not mutate `.aim` data during help, version, doctor, query,
+  trace, or passthrough flows.
 - Native Aim remains an external runtime prerequisite for delegated commands.
-- The repo's development dependency on Aim is only for local development and
-testing convenience.
+- The repository's development dependency on Aim is only for local development
+  and testing convenience.
 
-## Local development
+## Development
+
+The project uses Python 3.12 for local development and supports
+`>=3.10,<3.13` at runtime.
 
 ```bash
+uv python install 3.12
+uv venv --python 3.12
 uv sync --group dev
 uv run pytest
 ```
 
-## Quick checks
+Useful local checks:
 
 ```bash
 uv run aimx --help
@@ -216,8 +295,3 @@ uv run aimx doctor
 uv run aimx query metrics "metric.name == 'loss'" --repo data
 uv run aimx query images "images" --repo data/.aim --json
 ```
-
-## TODO
-
-- [ ] Introduce `skills` — composable, reusable workflow modules that layer higher-level experiment
-  analysis and auto-research capabilities on top of `aimx`.
