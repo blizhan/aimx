@@ -16,6 +16,7 @@ class RunMeta:
     experiment: str | None
     name: str | None
     creation_time: float | None
+    params: dict[str, Any] | None = None
 
 
 @dataclass
@@ -63,12 +64,41 @@ def _extract_run_meta(run: Any) -> RunMeta:
             else:
                 creation_time = created_at.timestamp()
 
+    params = _as_plain_dict(getattr(run, "hparams", None))
+
     return RunMeta(
         hash=run.hash,
         experiment=getattr(run, "experiment", None),
         name=getattr(run, "name", None),
         creation_time=float(creation_time) if creation_time is not None else None,
+        params=params,
     )
+
+
+def _as_plain_dict(value: Any) -> dict[str, Any] | None:
+    """Best-effort conversion of mapping-like objects to plain ``dict``."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return dict(value)
+
+    to_dict = getattr(value, "to_dict", None)
+    if callable(to_dict):
+        try:
+            converted = to_dict()
+        except Exception:  # noqa: BLE001
+            return None
+        if isinstance(converted, dict):
+            return dict(converted)
+        try:
+            return dict(converted)
+        except Exception:  # noqa: BLE001
+            return None
+
+    try:
+        return dict(value)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _extract_values(metric: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:

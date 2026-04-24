@@ -78,6 +78,7 @@ class _FakeRun:
         name: str | None = None,
         creation_time: float | None = None,
         created_at: dt.datetime | None = None,
+        hparams: object | None = None,
     ) -> None:
         self.hash = hash
         self.experiment = experiment
@@ -86,6 +87,8 @@ class _FakeRun:
             self.creation_time = creation_time
         if created_at is not None:
             self.created_at = created_at
+        if hparams is not None:
+            self.hparams = hparams
 
 
 class TestExtractRunMeta:
@@ -102,6 +105,35 @@ class TestExtractRunMeta:
         meta = _extract_run_meta(run)
 
         assert meta.creation_time == pytest.approx(1744532960.888126)
+
+    def test_preserves_hparams_dict_as_plain_dict(self) -> None:
+        run = _FakeRun(hparams={"lr": 0.001, "batch_size": 32})
+
+        meta = _extract_run_meta(run)
+
+        assert meta.params == {"lr": 0.001, "batch_size": 32}
+
+    def test_converts_hparams_with_to_dict(self) -> None:
+        class _HParams:
+            def to_dict(self) -> dict[str, object]:
+                return {"dropout": 0.2}
+
+        run = _FakeRun(hparams=_HParams())
+
+        meta = _extract_run_meta(run)
+
+        assert meta.params == {"dropout": 0.2}
+
+    def test_gracefully_handles_unconvertible_hparams(self) -> None:
+        class _BrokenHParams:
+            def to_dict(self) -> object:
+                raise RuntimeError("boom")
+
+        run = _FakeRun(hparams=_BrokenHParams())
+
+        meta = _extract_run_meta(run)
+
+        assert meta.params is None
 
 
 class _FakeMetricData:
