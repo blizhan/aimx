@@ -28,6 +28,19 @@ uv add aimx
 pip install aimx
 ```
 
+### Install the agent skill
+
+This repository also includes an `aimx` skill for agent workflows such as
+`autoresearch` `log_experiment`, where an LLM needs to collect run parameters,
+metric summaries, traces, and image evidence from a local Aim repository.
+
+```bash
+npx skills install blizhan/aimx
+```
+
+After installation, invoke the skill as `$aimx`. The skill assumes the `aimx`
+CLI is available in the environment that performs the experiment inspection.
+
 ### Check your environment
 
 ```bash

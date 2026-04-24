@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aimx"
+  short_description: "Collect Aim experiment evidence"
+  default_prompt: "Use $aimx to collect params, metrics, traces, and image evidence from an Aim repo before proposing the next experiment."
