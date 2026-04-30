@@ -240,6 +240,8 @@ renders a non-interactive Rich terminal visual with a web-style blue-gradient
 current-step histogram and step-by-bin heatmap. Use `--table`, `--csv`, or
 `--json` for tensor inspection and scripting.
 
+![aimx trace distribution output preview](static/distributions.png)
+
 ```bash
 # Show a web-like terminal visual for the first matched distribution
 aimx trace distribution "distribution.name != ''" --repo data
