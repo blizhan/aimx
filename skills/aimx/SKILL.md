@@ -11,6 +11,91 @@ Use `aimx` as a read-only evidence collector for `autoresearch` `log_experiment`
 steps. Prefer JSON output so downstream agents can compare runs, explain model
 effects, and propose the next experiment from concrete Aim data.
 
+## Fast Recipes
+
+Use these first for common analysis tasks. Keep `--repo` explicit and prefer
+`--json` for machine-readable output.
+
+### Discover run scope and available params
+
+```bash
+aimx query params "run.hash != ''" --repo <repo> --json
+```
+
+### Inspect one run quickly
+
+```bash
+aimx query params "run.hash == '<run-hash>'" --repo <repo> --json
+aimx query metrics "(run.hash == '<run-hash>') and metric.name != ''" --repo <repo> --json
+```
+
+### Rank runs by an objective metric
+
+```bash
+aimx query metrics "(<run-scope>) and metric.name == '<metric>'" --repo <repo> --json > metrics.json
+python - <<'PY'
+from __future__ import annotations
+import json
+from pathlib import Path
+
+payload = json.loads(Path("metrics.json").read_text())
+rows = []
+for run in payload.get("runs", []):
+    for metric in run.get("metrics", []):
+        value = metric.get("min", {}).get("value")
+        if value is not None:
+            rows.append((value, run.get("hash"), run.get("name"), metric.get("context", {})))
+for value, run_hash, run_name, context in sorted(rows)[:5]:
+    print(f"{value:.6f}\t{run_hash}\t{run_name}\t{context}")
+PY
+```
+
+### Compare two runs side by side
+
+```bash
+aimx query params "run.hash == '<baseline-hash>' or run.hash == '<candidate-hash>'" --repo <repo> --json
+aimx query metrics "((run.hash == '<baseline-hash>') or (run.hash == '<candidate-hash>')) and metric.name == '<metric>'" --repo <repo> --json
+```
+
+### Check curve health with bounded trace evidence
+
+```bash
+aimx trace "(<run-scope>) and metric.name == '<metric>'" --repo <repo> --json --tail 200 > trace.json
+```
+
+Then reduce `trace.json` with the `curve_summary` snippet from
+`references/aimx-cli.md` instead of pasting raw series.
+
+### Sanity-check distribution traces
+
+```bash
+aimx trace distribution "<distribution-expr>" --repo <repo> --json --tail 5
+aimx trace distribution "distribution.name != ''" --repo <repo> --step 12300
+```
+
+### Capture one snapshot bundle for logs
+
+```bash
+uv run python skills/aimx/scripts/collect_experiment_snapshot.py \
+  --repo data \
+  --base-expr "run.hash != ''" \
+  --metric loss \
+  --trace-metric loss \
+  --pretty
+```
+
+## When to use what
+
+| Need | Use |
+| --- | --- |
+| Discover runs and key hyperparameters | `aimx query params "<run-scope>" --repo <repo> --json` |
+| Rank runs cheaply by objective | `aimx query metrics "<metric-expr>" --repo <repo> --json` and compare `min.value` or `max.value` |
+| Inspect curve shape and late stability | `aimx trace "<metric-expr>" --repo <repo> --json --tail N` |
+| Focus on a step or epoch window | `--steps a:b` or `--epochs a:b` on query/trace commands |
+| Analyze weight or gradient histograms | `aimx trace distribution "<distribution-expr>" --repo <repo> --json` |
+| Collect qualitative image evidence | `aimx query images "<image-expr>" --repo <repo> --json --head N` |
+| Check native Aim passthrough readiness | `aimx doctor` |
+
 ## Requirements
 
 - Require `aimx` in the Python environment that runs `log_experiment`.
@@ -31,6 +116,9 @@ effects, and propose the next experiment from concrete Aim data.
   skill.
 
 ## Workflow
+
+For common tasks, start from **Fast Recipes** and only switch to this full
+workflow when the scope is unclear or the question is complex.
 
 1. Locate the Aim repository. Pass `--repo <repo-root-or-.aim>` explicitly; in
    this repository, use `--repo data` or `--repo data/.aim` for local checks.
@@ -91,6 +179,43 @@ effects, and propose the next experiment from concrete Aim data.
    }
    ```
 
+## Analysis Workflow
+
+Use the same discipline as large experiment trackers: inspect structure first,
+query only the fields needed for the question, then reduce evidence into compact
+statistics before writing conclusions.
+
+1. Start with params and metric summaries to discover candidate runs, objective
+   metrics, contexts, and missing fields. Avoid dumping full JSON payloads into
+   conversation context.
+2. Choose the objective direction explicitly. Rank cheaply from summaries first:
+   `min.value` for loss/error, `max.value` for accuracy/F1/AUC/IoU, and
+   `last.value` only when the final checkpoint is the real objective.
+3. Pull bounded traces only for the baseline, top candidates, and suspicious
+   runs. Prefer `--tail`, `--steps`, `--epochs`, and `--every` before collecting
+   full curves.
+4. Compute local stats before interpreting: best step, final-window mean/std,
+   train-vs-val gap, NaN/Inf counts, sustained increases, spikes, and plateaus.
+5. Compare runs side by side with selected params plus selected metrics. Do not
+   iterate every param or every metric unless discovery is the goal.
+6. Escalate evidence by modality: use distribution traces for weights,
+   activations, or gradients; use image metadata for qualitative regressions.
+7. Keep the final analysis small: state objective, run scope, top runs, curve
+   health, anomalies, confidence, and the next experiment suggested by evidence.
+
+## Critical Rules
+
+- Discover scope first with `aimx query params "<run-scope>" --repo <repo> --json`.
+  Do not assume metric or param names.
+- Treat `aimx` output as data: parse JSON and report aggregates, not raw payloads.
+- Slice traces aggressively with `--tail`, `--head`, `--steps`, `--epochs`, or
+  `--every` before computing local statistics.
+- Always pass `--repo` explicitly to avoid reading an unintended repository.
+- For automation, use `aimx trace distribution` with `--json`, `--csv`, or
+  `--table`. Unflagged mode is terminal visualization for human inspection.
+- Always finish with a compact conclusion: objective, top runs, curve health,
+  anomalies, confidence, and next experiment.
+
 ## Interpretation Rules
 
 - Prefer validation, test, or held-out contexts over training contexts when
@@ -111,6 +236,21 @@ effects, and propose the next experiment from concrete Aim data.
   metrics should reduce confidence.
 - Preserve read-only behavior. Do not run commands that initialize, repair,
   migrate, delete, or rewrite Aim repositories during `log_experiment`.
+
+## Gotchas
+
+| Gotcha | Wrong | Right |
+| --- | --- | --- |
+| Missing `aimx` in environment | Assume `aimx` is available | Verify with `aimx --help` or `python -m aimx --help`, then follow project install workflow |
+| Repository targeting | Rely on current directory | Pass `--repo <repo>` explicitly on every collection command |
+| Summary vs curve confusion | Treat `query metrics` output as full history | Use `query metrics` for summary (`last/min/max`) and `trace --json` for curve shape |
+| Raw payload dumping | Paste full JSON into conversation | Parse and compute compact aggregates before reporting |
+| AimQL string quoting | `metric.name == "loss"` | `metric.name == 'loss'` |
+| Short hash assumptions | Assume short hash is canonical identity | Let `aimx` expand it, but compare/store full run hash |
+| Distribution output mode | Use default distribution mode in scripts | Use `--json`, `--csv`, or `--table` for automation |
+| `--step` expectation | Expect `--step` to filter JSON/CSV/table exports | Use `--step` only for visual histogram mode |
+| Empty trace handling | Treat non-JSON message as fatal parsing error | Treat it as no trace evidence and continue analysis |
+| Full trace collection | Pull all runs and all points first | Rank by summary, then trace only baseline, top candidates, and suspicious runs |
 
 ## Helper Script
 
@@ -135,4 +275,7 @@ needed. It writes only to stdout.
 ## Reference
 
 Read `references/aimx-cli.md` for command details, JSON envelope shapes, and
-suggested `log_experiment` evidence fields.
+suggested `log_experiment` evidence fields. For deeper experiment analysis
+patterns, see "Analysis Patterns", "Find best run by objective", "Spike /
+divergence / plateau / NaN detection", "Overfitting detection", and "Sweep
+ranking".
