@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aimx Hydra Lightning Builder"
+  short_description: "Build Hydra Lightning Aim repositories"
+  default_prompt: "Use $aimx-hydra-lightning-builder to scaffold or audit a Hydra Lightning repository for Aimx AutoResearch."

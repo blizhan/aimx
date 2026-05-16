@@ -1,0 +1,2 @@
+autoresearch_marker:
+  _target_: {{ package_name }}.callbacks.autoresearch.AutoResearchMarker

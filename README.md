@@ -28,18 +28,26 @@ uv add aimx
 pip install aimx
 ```
 
-### Install the agent skill
+### Install the agent skills
 
-This repository also includes an `aimx` skill for agent workflows such as
-`autoresearch` `log_experiment`, where an LLM needs to collect run parameters,
-metric summaries, traces, and image evidence from a local Aim repository.
+This repository also includes agent skills for Aimx AutoResearch workflows.
+The existing `aimx` skill is the Observe subsystem for `log_experiment`, where
+an LLM collects run parameters, metric summaries, traces, and image evidence
+from a local Aim repository. The build skills help create or audit repositories
+that are ready for that loop.
 
 ```bash
 npx skills install blizhan/aimx
 ```
 
-After installation, invoke the skill as `$aimx`. The skill assumes the `aimx`
-CLI is available in the environment that performs the experiment inspection.
+After installation, invoke:
+
+- `$aimx` for read-only experiment evidence collection.
+- `$aimx-hydra-lightning-builder` for Hydra + Lightning + Aim scaffold and
+  migration-audit workflows.
+
+The skills assume the `aimx` CLI is available in the environment that performs
+experiment inspection.
 
 ### Check your environment
 

@@ -1,0 +1,4 @@
+_target_: {{ package_name }}.models.mlp.MLP
+in_dim: ${datamodule.num_features}
+hidden_dim: 16
+out_dim: ${datamodule.num_classes}

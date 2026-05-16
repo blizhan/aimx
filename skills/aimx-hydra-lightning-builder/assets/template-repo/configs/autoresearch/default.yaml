@@ -1,0 +1,17 @@
+stack: "{{ stack }}"
+train_command: "uv run python src/train.py"
+fast_dev_command: "uv run python src/train.py trainer.fast_dev_run=true trainer.logger=false"
+config_entrypoint: "configs/train.yaml"
+aim_repo: ${paths.root_dir}
+experiment_name: "{{ project_name }}"
+objective:
+  metric: "acc"
+  direction: "maximize"
+  context:
+    subset: "val"
+evidence:
+  params: true
+  metrics: true
+  traces: true
+  images: false
+  distributions: false
