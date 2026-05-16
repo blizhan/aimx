@@ -1,0 +1,7 @@
+_target_: {{ package_name }}.datamodules.dummy.RandomClassificationDataModule
+num_samples: 64
+num_features: 8
+num_classes: 2
+batch_size: 16
+num_workers: 0
+seed: ${seed}

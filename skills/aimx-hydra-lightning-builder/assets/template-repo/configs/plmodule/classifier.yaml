@@ -1,0 +1,2 @@
+_target_: {{ package_name }}.plmodules.classifier.ClassificationModule
+_partial_: true

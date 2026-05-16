@@ -1,0 +1,11 @@
+_target_: lightning.Trainer
+default_root_dir: ${paths.output_dir}
+accelerator: cpu
+devices: 1
+max_epochs: 1
+fast_dev_run: false
+logger: true
+enable_checkpointing: false
+enable_progress_bar: true
+log_every_n_steps: 1
+precision: ${accelerate.precision}

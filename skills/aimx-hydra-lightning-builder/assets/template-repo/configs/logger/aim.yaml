@@ -1,0 +1,10 @@
+aim:
+  _target_: aim.pytorch_lightning.AimLogger
+  repo: ${paths.root_dir}
+  experiment: ${autoresearch.experiment_name}
+  train_metric_prefix: "train/"
+  val_metric_prefix: "val/"
+  test_metric_prefix: "test/"
+  system_tracking_interval: 10
+  log_system_params: false
+  capture_terminal_logs: false
