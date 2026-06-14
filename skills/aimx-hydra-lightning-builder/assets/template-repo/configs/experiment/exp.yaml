@@ -1,0 +1,39 @@
+# @package _global_
+
+# Run with:
+# uv run python src/train.py experiment=exp
+
+defaults:
+  - override /datamodule: dummy
+  - override /model: mlp
+  - override /plmodule: classifier
+  - override /callbacks: default
+  - override /trainer: default
+  - override /opt: default
+  - override /accelerate: default
+  - override /logger: aim
+
+task_name: train_exp
+tags: ["exp", "{{ preset }}"]
+
+seed: 42
+
+autoresearch:
+  experiment_name: "{{ project_name }}-exp"
+
+trainer:
+  max_epochs: 2
+  gradient_clip_val: 0.5
+
+datamodule:
+  batch_size: 32
+
+model:
+  hidden_dim: 32
+
+opt:
+  optimizer:
+    lr: 0.002
+
+accelerate:
+  compile: false

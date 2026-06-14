@@ -2,7 +2,22 @@ from __future__ import annotations
 
 import torch
 from lightning import LightningDataModule
-from torch.utils.data import DataLoader, TensorDataset, random_split
+from torch.utils.data import DataLoader, Dataset, random_split
+
+
+class PytreeClassificationDataset(Dataset):
+    def __init__(self, x: torch.Tensor, y: torch.Tensor) -> None:
+        self.x = x
+        self.y = y
+
+    def __len__(self) -> int:
+        return int(self.x.shape[0])
+
+    def __getitem__(self, index: int) -> dict[str, dict[str, torch.Tensor]]:
+        return {
+            "input": {"x": self.x[index]},
+            "target": {"label": self.y[index]},
+        }
 
 
 class RandomClassificationDataModule(LightningDataModule):
@@ -25,7 +40,7 @@ class RandomClassificationDataModule(LightningDataModule):
         x = torch.randn(int(self.hparams.num_samples), int(self.hparams.num_features), generator=generator)
         weights = torch.randn(int(self.hparams.num_features), int(self.hparams.num_classes), generator=generator)
         y = torch.argmax(x @ weights, dim=1)
-        dataset = TensorDataset(x, y)
+        dataset = PytreeClassificationDataset(x, y)
         train_len = max(1, int(0.8 * len(dataset)))
         val_len = len(dataset) - train_len
         self.train_dataset, self.val_dataset = random_split(dataset, [train_len, val_len], generator=generator)
