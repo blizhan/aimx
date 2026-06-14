@@ -10,6 +10,7 @@ defaults:
   - logger: aim
   - opt: default
   - accelerate: default
+  - experiment: null
 
 task_name: train
 tags: ["dev", "{{ preset }}"]

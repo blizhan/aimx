@@ -2,3 +2,9 @@ optimizer:
   _target_: torch.optim.AdamW
   lr: 0.001
   weight_decay: 0.0
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: True
+  T_max: 10
+  eta_min: 0
