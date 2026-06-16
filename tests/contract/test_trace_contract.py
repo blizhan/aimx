@@ -9,7 +9,7 @@ import pytest
 
 from aimx.__main__ import main
 from aimx.aim_bridge.metric_stats import DistributionSeries, collect_distribution_series
-from aimx.commands.query import normalize_repo_path
+from aimx.commands.query import DEFAULT_QUERY_EXPRESSION, normalize_repo_path
 
 
 def _require_distribution_series(sample_repo_root: Path) -> list[DistributionSeries]:
@@ -66,6 +66,32 @@ def test_trace_json_contract_has_steps_and_values_arrays(capfd, sample_repo_root
     assert isinstance(first["values"], list)
 
 
+def test_trace_json_contract_omitted_expression_matches_explicit_default(
+    capfd, sample_repo_root
+) -> None:
+    explicit_exit = main(
+        ["trace", DEFAULT_QUERY_EXPRESSION, "--repo", str(sample_repo_root), "--json"]
+    )
+    explicit_payload = json.loads(capfd.readouterr().out)
+
+    omitted_exit = main(["trace", "--repo", str(sample_repo_root), "--json"])
+    omitted_payload = json.loads(capfd.readouterr().out)
+
+    assert explicit_exit == 0
+    assert omitted_exit == 0
+    assert omitted_payload == explicit_payload
+
+
+def test_trace_plot_contract_omitted_expression_produces_output(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(["trace", "--repo", str(sample_repo_root), "--head", "5"])
+
+    captured = capfd.readouterr()
+    assert exit_code == 0
+    assert captured.out.strip()
+
+
 def test_trace_csv_contract_has_correct_headers(capfd, sample_repo_root) -> None:
     exit_code = main(
         ["trace", "metric.name == 'loss'", "--repo", str(sample_repo_root), "--csv"]
@@ -120,6 +146,43 @@ def test_trace_distribution_default_visual_contract(capfd, sample_repo_root: Pat
     assert "Histogram" in captured.out
     assert "Heatmap (steps x bins)" in captured.out
     assert not captured.err
+
+
+def test_trace_distribution_default_visual_omitted_expression_matches_explicit_default(
+    capfd, sample_repo_root: Path
+) -> None:
+    _require_distribution_series(sample_repo_root)
+
+    explicit_exit = main(
+        [
+            "trace",
+            "distribution",
+            DEFAULT_QUERY_EXPRESSION,
+            "--repo",
+            str(sample_repo_root),
+            "--head",
+            "2",
+            "--no-color",
+        ]
+    )
+    explicit_output = capfd.readouterr().out
+
+    omitted_exit = main(
+        [
+            "trace",
+            "distribution",
+            "--repo",
+            str(sample_repo_root),
+            "--head",
+            "2",
+            "--no-color",
+        ]
+    )
+    omitted_output = capfd.readouterr().out
+
+    assert explicit_exit == 0
+    assert omitted_exit == 0
+    assert omitted_output == explicit_output
 
 
 def test_trace_distribution_step_missing_value_reports_error(
@@ -226,3 +289,45 @@ def test_trace_distribution_explicit_modes_exclude_visual_sections(
     assert payload
     assert "points" in payload[0]
     assert "Heatmap (steps x bins)" not in json_output
+
+
+@pytest.mark.parametrize("mode", ["--table", "--csv", "--json"])
+def test_trace_distribution_explicit_modes_omitted_expression_match_default(
+    capfd,
+    sample_repo_root: Path,
+    mode: str,
+) -> None:
+    _require_distribution_series(sample_repo_root)
+
+    explicit_exit = main(
+        [
+            "trace",
+            "distribution",
+            DEFAULT_QUERY_EXPRESSION,
+            "--repo",
+            str(sample_repo_root),
+            mode,
+            "--head",
+            "1",
+            "--no-color",
+        ]
+    )
+    explicit_output = capfd.readouterr().out
+
+    omitted_exit = main(
+        [
+            "trace",
+            "distribution",
+            "--repo",
+            str(sample_repo_root),
+            mode,
+            "--head",
+            "1",
+            "--no-color",
+        ]
+    )
+    omitted_output = capfd.readouterr().out
+
+    assert explicit_exit == 0
+    assert omitted_exit == 0
+    assert omitted_output == explicit_output

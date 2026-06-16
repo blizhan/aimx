@@ -83,6 +83,8 @@ Why `3.12`:
 - Existing local Aim repositories on disk (read-only); run params are read from Aim run metadata attributes under `.aim` (004-run-params-query)
 - Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, `numpy>=1.24`, `rich>=13.7`, `plotext>=5.3`, existing Aim SDK usage for owned trace commands; no new runtime dependency planned (005-distribution-trace-visual)
 - Existing local Aim repositories on disk, read-only; distribution histogram points are read from Aim sequence data under `.aim` (005-distribution-trace-visual)
+- Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, `numpy>=1.24`, `rich>=13.7`, `plotext>=5.3`, `textual-image>=0.12.0`, existing Aim SDK usage for owned query and trace commands; no new dependency planned (007-default-query-runtime)
+- Existing local Aim repositories on disk, read-only; query/trace data and run timing metadata are read from `.aim` repositories without modification (007-default-query-runtime)
 
 ## Recent Changes
 - 001-aim-command-passthrough: Added Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, native Aim CLI (external runtime prerequisite for delegated commands), pytest for test automation

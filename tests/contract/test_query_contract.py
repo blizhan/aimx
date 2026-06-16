@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import json
-import sys
-from unittest.mock import patch
 
 from aimx.__main__ import main
+from aimx.commands.query import DEFAULT_QUERY_EXPRESSION
 
 
 def test_query_metrics_json_contract_uses_nested_runs_envelope(capfd, sample_repo_root) -> None:
@@ -54,6 +53,56 @@ def test_query_metrics_text_contract_reports_repo_count_and_metric_name(
     assert "loss" in captured.out
 
 
+def test_query_metrics_json_contract_reports_default_expression_when_omitted(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(["query", "metrics", "--repo", str(sample_repo_root), "--json"])
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["target"] == "metrics"
+    assert payload["expression"] == DEFAULT_QUERY_EXPRESSION
+    assert payload["metrics_count"] > 0
+
+
+def test_query_images_json_contract_reports_default_expression_when_omitted(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(["query", "images", "--repo", str(sample_repo_root), "--json"])
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["target"] == "images"
+    assert payload["expression"] == DEFAULT_QUERY_EXPRESSION
+    assert payload["count"] > 0
+
+
+def test_query_params_rich_contract_reports_default_expression_when_omitted(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(["query", "params", "--repo", str(sample_repo_root)])
+
+    captured = capfd.readouterr()
+    assert exit_code == 0
+    assert DEFAULT_QUERY_EXPRESSION in captured.out
+    assert "params where" in captured.out
+
+
+def test_query_params_json_contract_reports_default_expression_when_omitted(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(["query", "params", "--repo", str(sample_repo_root), "--json"])
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["target"] == "params"
+    assert payload["expression"] == DEFAULT_QUERY_EXPRESSION
+    assert payload["runs_count"] > 0
+
+
 def test_query_metrics_oneline_contract_is_tab_separated_and_contains_metric_name(
     capfd, sample_repo_root
 ) -> None:
@@ -70,7 +119,7 @@ def test_query_metrics_oneline_contract_is_tab_separated_and_contains_metric_nam
 
     captured = capfd.readouterr()
     assert exit_code == 0
-    lines = [l for l in captured.out.splitlines() if l.strip()]
+    lines = [line for line in captured.out.splitlines() if line.strip()]
     assert lines, "Expected at least one output line"
     assert "loss" in captured.out
     assert "\t" in lines[0]
@@ -108,8 +157,29 @@ def test_query_params_json_contract_uses_stable_envelope(capfd, sample_repo_root
     assert "hash" in first_run
     assert "experiment" in first_run
     assert "name" in first_run
+    assert "duration" in first_run
     assert "params" in first_run
     assert "missing_params" in first_run
+
+
+def test_query_params_json_contract_includes_duration_object(
+    capfd, sample_repo_root
+) -> None:
+    exit_code = main(
+        ["query", "params", "--repo", str(sample_repo_root), "--json"]
+    )
+
+    captured = capfd.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["runs"]
+    duration = payload["runs"][0]["duration"]
+    assert set(duration) == {"seconds", "status", "source"}
+    assert duration["status"] in {"available", "running", "unavailable"}
+    if duration["status"] == "available":
+        assert isinstance(duration["seconds"], (int, float))
+    else:
+        assert duration["seconds"] is None
 
 
 def test_query_params_text_contract_reports_repo_count_and_params(
@@ -122,6 +192,23 @@ def test_query_params_text_contract_reports_repo_count_and_params(
     assert "Repo:" in captured.out
     assert "match" in captured.out
     assert "hparam.lr" in captured.out
+
+
+def test_query_params_text_contract_reports_duration(
+    capfd, sample_repo_root
+) -> None:
+    rich_exit = main(["query", "params", "--repo", str(sample_repo_root)])
+    rich_captured = capfd.readouterr()
+    assert rich_exit == 0
+    assert "DURATION" in rich_captured.out
+
+    plain_exit = main(["query", "params", "--repo", str(sample_repo_root), "--plain"])
+    plain_captured = capfd.readouterr()
+    assert plain_exit == 0
+    first_line = next(line for line in plain_captured.out.splitlines() if line.strip())
+    cells = first_line.split("\t")
+    assert len(cells) >= 5
+    assert cells[4]
 
 
 def test_query_params_json_contract_honors_selected_params(
@@ -334,21 +421,21 @@ def test_max_images_has_no_effect_on_json_or_plain(capfd, sample_repo_root) -> N
 def test_missing_max_images_value_exits_with_code_2(capfd) -> None:
     """T018 (contract): --max-images with no value → exit 2."""
     exit_code = main(["query", "images", "images", "--max-images"])
-    captured = capfd.readouterr()
+    capfd.readouterr()
     assert exit_code == 2
 
 
 def test_negative_max_images_exits_with_code_2(capfd) -> None:
     """T018 (contract): negative --max-images → exit 2."""
     exit_code = main(["query", "images", "images", "--max-images", "-1"])
-    captured = capfd.readouterr()
+    capfd.readouterr()
     assert exit_code == 2
 
 
 def test_non_integer_max_images_exits_with_code_2(capfd) -> None:
     """T018 (contract): non-integer --max-images → exit 2."""
     exit_code = main(["query", "images", "images", "--max-images", "abc"])
-    captured = capfd.readouterr()
+    capfd.readouterr()
     assert exit_code == 2
 
 

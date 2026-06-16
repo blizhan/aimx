@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 SUPPORTED_TARGETS = {"metrics", "images", "params"}
+DEFAULT_QUERY_EXPRESSION = "run.hash != ''"
 PARAMS_UNSUPPORTED_QUERY_FLAGS = {
     "--steps",
     "--epochs",
@@ -36,7 +37,7 @@ class QueryInvocation:
     def __post_init__(self) -> None:
         if self.target not in SUPPORTED_TARGETS:
             raise ValueError(
-                f"Unsupported query target: {self.target}. Supported targets: metrics, images."
+                f"Unsupported query target: {self.target}. Supported targets: metrics, images, params."
             )
         if not self.expression.strip():
             raise ValueError("Query expression must not be empty.")
@@ -90,9 +91,9 @@ def _parse_non_negative_int(flag: str, raw: str) -> int:
 
 
 def parse_query_invocation(args: list[str]) -> QueryInvocation:
-    if len(args) < 2:
+    if not args:
         raise ValueError(
-            "Usage: aimx query <metrics|images|params> <expression> [--repo <path>] "
+            "Usage: aimx query <metrics|images|params> [<expression>] [--repo <path>] "
             "[--json] [--oneline] [--no-color] [--verbose] "
             "[--steps start:end | --epochs start:end] "
             "[--head N] [--tail N] [--every K] "
@@ -100,8 +101,12 @@ def parse_query_invocation(args: list[str]) -> QueryInvocation:
         )
 
     target = args[0]
-    expression = args[1]
-    rest = args[2:]
+    if len(args) >= 2 and not args[1].startswith("-"):
+        expression = args[1].strip() or DEFAULT_QUERY_EXPRESSION
+        rest = args[2:]
+    else:
+        expression = DEFAULT_QUERY_EXPRESSION
+        rest = args[1:]
 
     output_json = False
     plain = False

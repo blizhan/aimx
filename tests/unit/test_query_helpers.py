@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from aimx.commands.query import (
+    DEFAULT_QUERY_EXPRESSION,
     QueryInvocation,
     _sort_image_rows,
     normalize_repo_path,
@@ -59,6 +60,69 @@ def test_parse_query_invocation_params_defaults() -> None:
     assert inv.expression == "run.hash != ''"
     assert inv.repo_path == Path(".")
     assert inv.param_keys == ()
+
+
+@pytest.mark.parametrize("target", ["metrics", "images", "params"])
+def test_parse_query_invocation_uses_default_expression_when_omitted(target: str) -> None:
+    inv = parse_query_invocation([target])
+
+    assert inv.target == target
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+
+
+def test_parse_query_invocation_treats_option_first_as_omitted_expression() -> None:
+    inv = parse_query_invocation(["params", "--repo", "data", "--json", "--param", "hparam.lr"])
+
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+    assert inv.repo_path == Path("data")
+    assert inv.output_json is True
+    assert inv.param_keys == ("hparam.lr",)
+
+
+@pytest.mark.parametrize(
+    ("target", "args", "attr", "expected"),
+    [
+        ("metrics", ["--repo", "data"], "repo_path", Path("data")),
+        ("metrics", ["--json"], "output_json", True),
+        ("metrics", ["--plain"], "plain", True),
+        ("metrics", ["--steps", "1:5"], "step_slice", "1:5"),
+        ("images", ["--epochs", "1:5"], "epoch_slice", "1:5"),
+        ("metrics", ["--head", "2"], "head", 2),
+        ("metrics", ["--tail", "3"], "tail", 3),
+        ("metrics", ["--every", "4"], "every", 4),
+        ("images", ["--max-images", "5"], "max_images", 5),
+        ("params", ["--param", "hparam.lr"], "param_keys", ("hparam.lr",)),
+    ],
+)
+def test_parse_query_invocation_option_first_flags_preserve_option_parsing(
+    target: str,
+    args: list[str],
+    attr: str,
+    expected: object,
+) -> None:
+    inv = parse_query_invocation([target, *args])
+
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+    assert getattr(inv, attr) == expected
+
+
+def test_parse_query_invocation_uses_default_expression_when_blank() -> None:
+    inv = parse_query_invocation(["metrics", "   ", "--repo", "data"])
+
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+    assert inv.repo_path == Path("data")
+
+
+def test_parse_query_invocation_preserves_explicit_expression_precedence() -> None:
+    inv = parse_query_invocation(["metrics", "metric.name == 'loss'", "--repo", "data"])
+
+    assert inv.expression == "metric.name == 'loss'"
+    assert inv.repo_path == Path("data")
+
+
+def test_parse_query_invocation_still_requires_target() -> None:
+    with pytest.raises(ValueError, match="Usage: aimx query"):
+        parse_query_invocation([])
 
 
 def test_parse_query_invocation_params_repeated_param_keys() -> None:

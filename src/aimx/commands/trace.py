@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from aimx.commands.query import QueryCommandResult, normalize_repo_path
+from aimx.commands.query import (
+    DEFAULT_QUERY_EXPRESSION,
+    QueryCommandResult,
+    normalize_repo_path,
+)
 
 _MODES = {"plot", "table", "csv", "json"}
 
@@ -37,28 +41,23 @@ class TraceInvocation:
 
 
 def parse_trace_invocation(args: list[str]) -> TraceInvocation:
-    if len(args) < 1:
-        raise ValueError(
-            "Usage: aimx trace [distribution] <expression> [--repo <path>] [--table|--csv|--json]"
-            " [--steps start:end] [--head N] [--tail N] [--every K]"
-            " [--width W] [--height H] [--no-color]"
-        )
-
     target: Literal["metrics", "distribution"] = "metrics"
     expression: str | None = None
     rest = args
-    if args[0] == "distribution":
+    if args and args[0] == "distribution":
         target = "distribution"
-        if len(args) < 2:
-            raise ValueError(
-                "Usage: aimx trace distribution <expression> [--repo <path>] [--table|--csv|--json]"
-                " [--steps start:end] [--head N] [--tail N] [--every K] [--no-color]"
-            )
-        expression = args[1]
-        rest = args[2:]
-    else:
-        expression = args[0]
+        if len(args) >= 2 and not args[1].startswith("-"):
+            expression = args[1].strip() or DEFAULT_QUERY_EXPRESSION
+            rest = args[2:]
+        else:
+            expression = DEFAULT_QUERY_EXPRESSION
+            rest = args[1:]
+    elif args and not args[0].startswith("-"):
+        expression = args[0].strip() or DEFAULT_QUERY_EXPRESSION
         rest = args[1:]
+    else:
+        expression = DEFAULT_QUERY_EXPRESSION
+        rest = args
 
     mode: Literal["plot", "table", "csv", "json"] = "plot"
     repo_value = "."

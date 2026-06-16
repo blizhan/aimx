@@ -11,6 +11,7 @@ from aimx.commands.trace import (
     _execute_trace_pipeline,
     parse_trace_invocation,
 )
+from aimx.commands.query import DEFAULT_QUERY_EXPRESSION
 
 
 @dataclass
@@ -34,6 +35,87 @@ def test_parse_trace_defaults() -> None:
     assert inv.width is None
     assert inv.height is None
     assert not inv.no_color
+
+
+def test_parse_trace_uses_default_expression_when_omitted() -> None:
+    inv = parse_trace_invocation([])
+
+    assert inv.target == "metrics"
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+
+
+def test_parse_trace_treats_option_first_as_omitted_expression() -> None:
+    inv = parse_trace_invocation(["--repo", "data", "--json", "--head", "5"])
+
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+    assert inv.repo_path == Path("data")
+    assert inv.mode == "json"
+    assert inv.head == 5
+
+
+def test_parse_trace_distribution_uses_default_expression_when_omitted() -> None:
+    inv = parse_trace_invocation(["distribution"])
+
+    assert inv.target == "distribution"
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+
+
+def test_parse_trace_distribution_treats_option_first_as_omitted_expression() -> None:
+    inv = parse_trace_invocation(["distribution", "--repo", "data", "--table"])
+
+    assert inv.target == "distribution"
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+    assert inv.repo_path == Path("data")
+    assert inv.mode == "table"
+
+
+@pytest.mark.parametrize(
+    ("args", "attr", "expected"),
+    [
+        (["--repo", "data"], "repo_path", Path("data")),
+        (["--json"], "mode", "json"),
+        (["--table"], "mode", "table"),
+        (["--csv"], "mode", "csv"),
+        (["--steps", "1:5"], "step_slice", "1:5"),
+        (["--head", "2"], "head", 2),
+        (["--tail", "3"], "tail", 3),
+        (["--every", "4"], "every", 4),
+        (["--width", "100"], "width", 100),
+        (["--height", "30"], "height", 30),
+        (["--no-color"], "no_color", True),
+    ],
+)
+def test_parse_trace_option_first_flags_preserve_option_parsing(
+    args: list[str],
+    attr: str,
+    expected: object,
+) -> None:
+    inv = parse_trace_invocation(args)
+
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+    assert getattr(inv, attr) == expected
+
+
+def test_parse_trace_distribution_option_first_step_preserves_option_parsing() -> None:
+    inv = parse_trace_invocation(["distribution", "--step", "123"])
+
+    assert inv.target == "distribution"
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+    assert inv.selected_step == 123
+
+
+def test_parse_trace_uses_default_expression_when_blank() -> None:
+    inv = parse_trace_invocation(["   ", "--repo", "data"])
+
+    assert inv.expression == DEFAULT_QUERY_EXPRESSION
+    assert inv.repo_path == Path("data")
+
+
+def test_parse_trace_preserves_explicit_expression_precedence() -> None:
+    inv = parse_trace_invocation(["metric.name=='loss'", "--repo", "data"])
+
+    assert inv.expression == "metric.name=='loss'"
+    assert inv.repo_path == Path("data")
 
 
 def test_parse_trace_table_mode() -> None:
@@ -89,19 +171,9 @@ def test_parse_trace_distribution_target() -> None:
     assert inv.repo_path == Path("data")
 
 
-def test_parse_trace_distribution_requires_expression() -> None:
-    with pytest.raises(ValueError, match="trace distribution"):
-        parse_trace_invocation(["distribution"])
-
-
 def test_parse_trace_rejects_unknown_flag() -> None:
     with pytest.raises(ValueError, match="Unsupported trace option"):
         parse_trace_invocation(["expr", "--repo", "data", "--bogus"])
-
-
-def test_parse_trace_rejects_missing_expression() -> None:
-    with pytest.raises(ValueError, match="Usage"):
-        parse_trace_invocation([])
 
 
 def test_parse_trace_rejects_non_integer_head() -> None:
