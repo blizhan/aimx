@@ -10,7 +10,7 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
-from aimx.aim_bridge.run_params import RunParams, default_param_keys
+from aimx.aim_bridge.run_params import RunDuration, RunParams, default_param_keys
 from aimx.rendering import colors
 
 DEFAULT_PARAM_COLUMN_LIMIT = 6
@@ -42,6 +42,32 @@ def _jsonable(value: Any) -> Any:
     return str(value)
 
 
+def _display_duration(duration: RunDuration) -> str:
+    if duration.status != "available" or duration.seconds is None:
+        return duration.status
+
+    seconds = max(0.0, duration.seconds)
+    if seconds < 1:
+        text = f"{seconds:.3f}".rstrip("0").rstrip(".")
+        return f"{text}s"
+    whole = int(seconds)
+    if whole < 60:
+        return f"{whole}s"
+    minutes, sec = divmod(whole, 60)
+    if minutes < 60:
+        return f"{minutes}m{sec:02d}s"
+    hours, minute = divmod(minutes, 60)
+    return f"{hours}h{minute:02d}m{sec:02d}s"
+
+
+def _duration_json(duration: RunDuration) -> dict[str, Any]:
+    return {
+        "seconds": duration.seconds if duration.status == "available" else None,
+        "status": duration.status,
+        "source": duration.source,
+    }
+
+
 def _keys_for_display(rows: list[RunParams], limit: int | None = DEFAULT_PARAM_COLUMN_LIMIT) -> tuple[tuple[str, ...], int]:
     selected = next((row.selected_keys for row in rows if row.selected_keys), ())
     keys = selected or default_param_keys(rows)
@@ -56,7 +82,7 @@ def render_params_rich_table(
     *,
     no_color: bool = False,
 ) -> str:
-    width = 120 if no_color else shutil.get_terminal_size(fallback=(120, 24)).columns
+    width = 160 if no_color else shutil.get_terminal_size(fallback=(160, 24)).columns
     buf = io.StringIO()
     console = Console(
         file=buf,
@@ -91,8 +117,9 @@ def render_params_rich_table(
     table.add_column("RUN", style=colors.RUN_HASH, no_wrap=True)
     table.add_column("EXPERIMENT", style=colors.EXPERIMENT, no_wrap=True)
     table.add_column("NAME", style=colors.METRIC_NAME, no_wrap=True)
+    table.add_column("DURATION", justify="right", no_wrap=True)
     for key in keys:
-        table.add_column(key, style=colors.CONTEXT_VAL)
+        table.add_column(key, style=colors.CONTEXT_VAL, no_wrap=True)
     if not keys:
         table.add_column("PARAMS", style=colors.CONTEXT_VAL)
 
@@ -101,6 +128,7 @@ def render_params_rich_table(
             _short_hash(row.run.hash),
             row.run.experiment or "",
             row.run.name or "",
+            _display_duration(row.duration),
         ]
         if keys:
             for key in keys:
@@ -125,6 +153,7 @@ def render_params_oneline(rows: list[RunParams], header_info: dict[str, Any]) ->
             _short_hash(row.run.hash),
             row.run.experiment or "",
             row.run.name or "",
+            _display_duration(row.duration),
         ]
         for key in keys:
             value = _display(row.params[key]) if key in row.params else "-"
@@ -151,6 +180,7 @@ def render_params_json(rows: list[RunParams], header_info: dict[str, Any]) -> st
                 "hash": row.run.hash,
                 "experiment": row.run.experiment,
                 "name": row.run.name,
+                "duration": _duration_json(row.duration),
                 "params": _jsonable(row.params),
                 "missing_params": list(row.missing_keys),
             }

@@ -9,7 +9,7 @@ import pytest
 
 from aimx.__main__ import main
 from aimx.aim_bridge.metric_stats import DistributionSeries, collect_distribution_series
-from aimx.commands.query import normalize_repo_path
+from aimx.commands.query import DEFAULT_QUERY_EXPRESSION, normalize_repo_path
 
 
 def _require_distribution_series(sample_repo_root: Path) -> list[DistributionSeries]:
@@ -100,6 +100,22 @@ def test_trace_json_mode_returns_full_value_arrays(capfd, sample_repo_root) -> N
         assert series["metric"] == "loss"
         assert len(series["steps"]) == len(series["values"])
         assert len(series["values"]) > 0
+
+
+def test_omitted_trace_query_matches_explicit_default_expression(
+    capfd, sample_repo_root
+) -> None:
+    explicit_exit = main(
+        ["trace", DEFAULT_QUERY_EXPRESSION, "--repo", str(sample_repo_root), "--json"]
+    )
+    explicit_payload = json.loads(capfd.readouterr().out)
+
+    omitted_exit = main(["trace", "--repo", str(sample_repo_root), "--json"])
+    omitted_payload = json.loads(capfd.readouterr().out)
+
+    assert explicit_exit == 0
+    assert omitted_exit == 0
+    assert omitted_payload == explicit_payload
 
 
 def test_trace_csv_mode_contains_correct_fields(capfd, sample_repo_root) -> None:
@@ -301,6 +317,35 @@ def test_trace_distribution_json_mode_preserves_series_payload_with_step(
     assert payload
     assert payload[0]["count"] == 2
     assert "points" in payload[0]
+
+
+def test_omitted_distribution_trace_matches_explicit_default_expression(
+    capfd, sample_repo_root: Path
+) -> None:
+    _require_distribution_series(sample_repo_root)
+
+    explicit_exit = main(
+        [
+            "trace",
+            "distribution",
+            DEFAULT_QUERY_EXPRESSION,
+            "--repo",
+            str(sample_repo_root),
+            "--json",
+            "--head",
+            "2",
+        ]
+    )
+    explicit_payload = json.loads(capfd.readouterr().out)
+
+    omitted_exit = main(
+        ["trace", "distribution", "--repo", str(sample_repo_root), "--json", "--head", "2"]
+    )
+    omitted_payload = json.loads(capfd.readouterr().out)
+
+    assert explicit_exit == 0
+    assert omitted_exit == 0
+    assert omitted_payload == explicit_payload
 
 
 def test_trace_distribution_csv_mode_preserves_rows_with_step(

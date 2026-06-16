@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -10,11 +10,54 @@ from aimx.aim_bridge.metric_stats import RunMeta, _extract_run_meta
 
 
 @dataclass(frozen=True)
+class RunDuration:
+    seconds: float | None = None
+    status: str = "unavailable"
+    source: str = "missing_metadata"
+
+
+@dataclass(frozen=True)
 class RunParams:
     run: RunMeta
     params: dict[str, Any]
+    duration: RunDuration = field(default_factory=RunDuration)
     selected_keys: tuple[str, ...] = ()
     missing_keys: tuple[str, ...] = ()
+
+
+def _numeric_seconds(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return None
+    if seconds < 0:
+        return None
+    return seconds
+
+
+def extract_run_duration(run: Any) -> RunDuration:
+    end_time = _numeric_seconds(getattr(run, "end_time", None))
+    creation_time = _numeric_seconds(getattr(run, "creation_time", None))
+    if creation_time is not None and end_time is None:
+        return RunDuration(status="running")
+
+    duration = _numeric_seconds(getattr(run, "duration", None))
+    if duration is not None:
+        return RunDuration(seconds=duration, status="available", source="duration")
+
+    if end_time is not None and creation_time is not None:
+        seconds = end_time - creation_time
+        if seconds >= 0:
+            return RunDuration(
+                seconds=seconds,
+                status="available",
+                source="end_time_minus_creation_time",
+            )
+        return RunDuration()
+
+    return RunDuration()
 
 
 def flatten_params(params: dict[str, Any], *, prefix: str = "") -> dict[str, Any]:
@@ -99,6 +142,7 @@ def collect_run_params(
             RunParams(
                 run=_extract_run_meta(run),
                 params=params,
+                duration=extract_run_duration(run),
                 selected_keys=selected_keys,
                 missing_keys=missing,
             )

@@ -64,17 +64,17 @@ When provided, `--repo` accepts either the repository root, such as `data`, or
 the metadata directory itself, such as `data/.aim`.
 
 ```bash
-# Summarize matching metrics
-aimx query metrics "metric.name == 'loss'" --repo data
+# Summarize metrics from all runs
+aimx query metrics --repo data
 
-# Preview matching images in supported terminals
-aimx query images "images" --repo data
+# Preview images in supported terminals
+aimx query images --repo data
 
-# Compare run parameters across matching runs
-aimx query params "run.hash != ''" --repo data
+# Compare run parameters and durations
+aimx query params --repo data
 
-# Plot a metric time series
-aimx trace "metric.name == 'loss'" --repo data
+# Plot metric time series from all runs
+aimx trace --repo data
 ```
 
 ## Features
@@ -106,8 +106,9 @@ aimx trace "metric.name == 'loss'" --repo data
 | `aimx query params` | Compare run-level parameters across matching runs. |
 | `aimx trace` | Plot, tabulate, or export metric time series. |
 
-Both `aimx query` and `aimx trace` accept **AimQL** expressions as their filter
-argument. AimQL is Aim's native Python-like query language.
+Both `aimx query` and `aimx trace` accept optional **AimQL** expressions as
+their filter argument. When the expression is omitted or blank, `aimx` uses
+`run.hash != ''`. AimQL is Aim's native Python-like query language.
 
 ```bash
 aimx query metrics "metric.name == 'loss' and run.hparams.learning_rate > 0.001"
@@ -126,6 +127,9 @@ statistics such as step count, last value, min value, and max value.
 
 ```bash
 # Rich table, colored in terminals by default
+aimx query metrics --repo data
+
+# Filter with AimQL
 aimx query metrics "metric.name == 'loss'" --repo data
 
 # Short run hashes are transparently expanded to full hashes
@@ -156,11 +160,11 @@ images directly in the terminal.
 
 ```bash
 # Inline preview in modern terminals
-aimx query images "images" --repo data
+aimx query images --repo data
 
 # Metadata output only
-aimx query images "images" --repo data --plain
-aimx query images "images" --repo data --json
+aimx query images --repo data --plain
+aimx query images --repo data --json
 
 # Filter and sample matching image rows
 aimx query images "images" --repo data --epochs 10:50 --head 10
@@ -193,7 +197,7 @@ matching runs.
 
 ```bash
 # Compare discovered params across all matching runs
-aimx query params "run.hash != ''" --repo data
+aimx query params --repo data
 
 # Select specific params
 aimx query params "run.experiment == 'cloud-segmentation'" --repo data \
@@ -209,7 +213,9 @@ aimx query params "run.hparam.lr == 0.0001" --repo data --param hparam.lr
 ```
 
 Missing selected params are displayed as `-` in terminal/plain output and listed
-under `missing_params` in JSON.
+under `missing_params` in JSON. Params output also includes run duration as a
+table column, a plain-output field after run name, and a JSON `duration` object
+with `seconds`, `status`, and `source`.
 
 ### Trace metrics
 
@@ -219,6 +225,9 @@ overlaid on the same plot.
 
 ```bash
 # Plot all matching loss curves
+aimx trace --repo data
+
+# Filter with AimQL
 aimx trace "metric.name == 'loss'" --repo data
 
 # Plot one run by short hash
@@ -252,7 +261,7 @@ current-step histogram and step-by-bin heatmap. Use `--table`, `--csv`, or
 
 ```bash
 # Show a web-like terminal visual for the first matched distribution
-aimx trace distribution "distribution.name != ''" --repo data
+aimx trace distribution --repo data
 
 # Inspect a specific training step; nearest tracked step is used if needed
 aimx trace distribution "distribution.name != ''" --repo data --step 12300
@@ -325,6 +334,7 @@ Useful local checks:
 uv run aimx --help
 uv run aimx version
 uv run aimx doctor
-uv run aimx query metrics "metric.name == 'loss'" --repo data
-uv run aimx query images "images" --repo data/.aim --json
+uv run aimx query metrics --repo data
+uv run aimx query images --repo data/.aim --json
+uv run aimx query params --repo data --json
 ```

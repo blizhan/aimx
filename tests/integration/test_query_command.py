@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import io
 import json
 from typing import Any
 from unittest.mock import patch
 
-import pytest
-
 from aimx.__main__ import main
 from aimx.aim_bridge.metric_stats import RunMeta
-from aimx.rendering.image_render import ImageRenderPlan, TerminalCapability, plan_render, render_inline
+from aimx.commands.query import DEFAULT_QUERY_EXPRESSION
+from aimx.rendering.image_render import TerminalCapability, plan_render, render_inline
 
 
 def test_metric_query_accepts_repo_root_and_dot_aim_paths(
@@ -89,7 +87,7 @@ def test_metric_query_oneline_mode_returns_tab_separated_rows(
 
     captured = capfd.readouterr()
     assert exit_code == 0
-    lines = [l for l in captured.out.splitlines() if l.strip()]
+    lines = [line for line in captured.out.splitlines() if line.strip()]
     assert lines
     assert "loss" in captured.out
     assert "\t" in lines[0]
@@ -124,6 +122,29 @@ def test_metric_query_json_mode_returns_nested_structure(
     assert last_val is not None
 
 
+def test_omitted_metric_query_matches_explicit_default_expression(
+    capfd, sample_repo_root
+) -> None:
+    explicit_exit = main(
+        [
+            "query",
+            "metrics",
+            DEFAULT_QUERY_EXPRESSION,
+            "--repo",
+            str(sample_repo_root),
+            "--json",
+        ]
+    )
+    explicit_payload = json.loads(capfd.readouterr().out)
+
+    omitted_exit = main(["query", "metrics", "--repo", str(sample_repo_root), "--json"])
+    omitted_payload = json.loads(capfd.readouterr().out)
+
+    assert explicit_exit == 0
+    assert omitted_exit == 0
+    assert omitted_payload == explicit_payload
+
+
 def test_image_query_returns_matches_from_sample_repository(capfd, sample_repo_root) -> None:
     exit_code = main(
         ["query", "images", "images", "--repo", str(sample_repo_root), "--json"]
@@ -134,6 +155,29 @@ def test_image_query_returns_matches_from_sample_repository(capfd, sample_repo_r
     assert exit_code == 0
     assert payload["count"] > 0
     assert payload["rows"][0]["name"] == "example"
+
+
+def test_omitted_image_query_matches_explicit_default_expression(
+    capfd, sample_repo_root
+) -> None:
+    explicit_exit = main(
+        [
+            "query",
+            "images",
+            DEFAULT_QUERY_EXPRESSION,
+            "--repo",
+            str(sample_repo_root),
+            "--json",
+        ]
+    )
+    explicit_payload = json.loads(capfd.readouterr().out)
+
+    omitted_exit = main(["query", "images", "--repo", str(sample_repo_root), "--json"])
+    omitted_payload = json.loads(capfd.readouterr().out)
+
+    assert explicit_exit == 0
+    assert omitted_exit == 0
+    assert omitted_payload == explicit_payload
 
 
 def test_params_query_accepts_repo_root_and_dot_aim_paths(
@@ -157,6 +201,29 @@ def test_params_query_accepts_repo_root_and_dot_aim_paths(
     assert root_payload["param_keys"] == dot_aim_payload["param_keys"]
 
 
+def test_omitted_params_query_matches_explicit_default_expression_for_dot_aim_path(
+    capfd, sample_repo_dot_aim
+) -> None:
+    explicit_exit = main(
+        [
+            "query",
+            "params",
+            DEFAULT_QUERY_EXPRESSION,
+            "--repo",
+            str(sample_repo_dot_aim),
+            "--json",
+        ]
+    )
+    explicit_payload = json.loads(capfd.readouterr().out)
+
+    omitted_exit = main(["query", "params", "--repo", str(sample_repo_dot_aim), "--json"])
+    omitted_payload = json.loads(capfd.readouterr().out)
+
+    assert explicit_exit == 0
+    assert omitted_exit == 0
+    assert omitted_payload == explicit_payload
+
+
 def test_params_query_returns_matches_from_sample_repository(
     capfd, sample_repo_root
 ) -> None:
@@ -167,6 +234,36 @@ def test_params_query_returns_matches_from_sample_repository(
     assert "match" in captured.out
     assert "cloud-segmentation" in captured.out
     assert "hparam.lr" in captured.out
+
+
+def test_params_query_duration_visible_with_omitted_and_explicit_expression(
+    capfd, sample_repo_root
+) -> None:
+    omitted_exit = main(["query", "params", "--repo", str(sample_repo_root), "--json"])
+    omitted_payload = json.loads(capfd.readouterr().out)
+
+    explicit_exit = main(
+        [
+            "query",
+            "params",
+            DEFAULT_QUERY_EXPRESSION,
+            "--repo",
+            str(sample_repo_root),
+            "--json",
+        ]
+    )
+    explicit_payload = json.loads(capfd.readouterr().out)
+
+    assert omitted_exit == 0
+    assert explicit_exit == 0
+    assert omitted_payload["runs"]
+    assert explicit_payload["runs"]
+    assert omitted_payload["runs"][0]["duration"] == explicit_payload["runs"][0]["duration"]
+    assert omitted_payload["runs"][0]["duration"]["status"] in {
+        "available",
+        "running",
+        "unavailable",
+    }
 
 
 def test_params_query_zero_matches_succeeds(capfd, sample_repo_root) -> None:
