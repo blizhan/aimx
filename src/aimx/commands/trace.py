@@ -314,6 +314,8 @@ def run_trace_command(args: list[str]) -> QueryCommandResult:
     except RuntimeError as error:
         return QueryCommandResult(exit_status=2, error_message=str(error))
     except Exception as error:
+        from aimx.aim_bridge.errors import format_trace_evaluation_error
+
         return QueryCommandResult(
-            exit_status=2, error_message=f"Failed to evaluate trace: {error}"
+            exit_status=2, error_message=format_trace_evaluation_error(error)
         )

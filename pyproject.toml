@@ -26,6 +26,7 @@ default = true
 [dependency-groups]
 dev = [
     "aim>=3.29.1",
+    "sqlalchemy>=2.0,<3",
     "pytest>=8.3.5",
 ]
 

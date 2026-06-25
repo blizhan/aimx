@@ -109,6 +109,7 @@ dependencies = [
 dev = [
     { name = "aim" },
     { name = "pytest" },
+    { name = "sqlalchemy" },
 ]
 
 [package.metadata]
@@ -123,6 +124,7 @@ requires-dist = [
 dev = [
     { name = "aim", specifier = ">=3.29.1" },
     { name = "pytest", specifier = ">=8.3.5" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3" },
 ]
 
 [[package]]

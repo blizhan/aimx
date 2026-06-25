@@ -283,8 +283,10 @@ def run_query_command(args: list[str]) -> QueryCommandResult:
     except RuntimeError as error:
         return QueryCommandResult(exit_status=2, error_message=str(error))
     except Exception as error:
+        from aimx.aim_bridge.errors import format_query_evaluation_error
+
         return QueryCommandResult(
-            exit_status=2, error_message=f"Failed to evaluate query: {error}"
+            exit_status=2, error_message=format_query_evaluation_error(error)
         )
 
 
