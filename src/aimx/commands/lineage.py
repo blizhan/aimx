@@ -31,7 +31,7 @@ def run_lineage_command(args: list[str]) -> ResearchCommandResult:
             if len(rest) < 3:
                 raise ValidationError("lineage link requires source, relation type, and target")
             source, relation_type, target = rest[:3]
-            options = _options(rest[3:])
+            options = _options(rest[3:], allowed=frozenset({"reason"}))
             operation = {
                 "op": "relation.create",
                 "local_id": "relation",
@@ -44,7 +44,7 @@ def run_lineage_command(args: list[str]) -> ResearchCommandResult:
         elif command == "retract":
             if not rest:
                 raise ValidationError("lineage retract requires a relation id")
-            options = _options(rest[1:])
+            options = _options(rest[1:], allowed=frozenset({"reason"}))
             operation = {"op": "relation.retract", "relation_id": rest[0]}
             if options.get("reason"):
                 operation["reason"] = options["reason"]

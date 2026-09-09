@@ -127,3 +127,27 @@ def test_agenda_transition_rules_are_enforced() -> None:
     with pytest.raises(ValidationError) as error:
         compile_update(update, state, revision=1, commit_id="commit_test")
     assert error.value.code == "invalid_transition"
+
+
+def test_completed_agenda_item_rejects_repeated_completion() -> None:
+    state = ResearchState(
+        agenda_items={"agenda_1": {"id": "agenda_1", "status": "completed"}},
+    )
+    update = ResearchUpdate.from_dict(
+        {
+            "schema_version": 1,
+            "base_revision": 0,
+            "author": {"kind": "agent", "name": "agent-a"},
+            "operations": [
+                {
+                    "op": "agenda.item.transition",
+                    "agenda_item_id": "agenda_1",
+                    "agenda_status": "completed",
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(ValidationError) as error:
+        compile_update(update, state, revision=1, commit_id="commit_test")
+    assert error.value.code == "invalid_transition"

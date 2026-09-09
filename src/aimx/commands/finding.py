@@ -13,6 +13,13 @@ from aimx.commands.research import (
 from aimx.research.errors import ResearchError, ValidationError
 from aimx.rendering.research_views import render_error, render_finding, render_findings
 
+_ALLOWED_OPTIONS = {
+    "comment": frozenset(),
+    "accept": frozenset({"reason"}),
+    "reject": frozenset({"reason"}),
+    "assess": frozenset({"status", "confidence", "reason"}),
+}
+
 
 def run_finding_command(args: list[str]) -> ResearchCommandResult:
     if not args:
@@ -56,7 +63,9 @@ def _build_human_update(command: str, args: list[str], state):
     finding_id = args[0]
     if finding_id not in state.findings:
         raise ValidationError(f"Unknown finding: {finding_id}", code="unknown_entity")
-    options = _options(args[1:])
+    if command not in _ALLOWED_OPTIONS:
+        raise ValidationError(f"Unsupported finding command: {command}")
+    options = _options(args[1:], allowed=_ALLOWED_OPTIONS[command])
     if command == "comment":
         text = " ".join(options.get("_", []))
         if not text.strip():
@@ -96,13 +105,15 @@ def _build_human_update(command: str, args: list[str], state):
     )
 
 
-def _options(args: list[str]) -> dict[str, object]:
+def _options(args: list[str], *, allowed: frozenset[str]) -> dict[str, object]:
     result: dict[str, object] = {"_": []}
     index = 0
     while index < len(args):
         token = args[index]
         if token.startswith("--"):
             key = token[2:].replace("-", "_")
+            if key not in allowed:
+                raise ValidationError(f"Unsupported option: {token}")
             if index + 1 >= len(args):
                 raise ValidationError(f"Missing value for {token}")
             result[key] = args[index + 1]

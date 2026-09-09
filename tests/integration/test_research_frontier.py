@@ -5,6 +5,7 @@ from pathlib import Path
 
 from aimx.commands.frontier import run_frontier_command
 from aimx.commands.research import run_research_command
+from aimx.research.store import read_state
 
 
 def test_frontier_steering_changes_later_context(tmp_path: Path) -> None:
@@ -55,3 +56,51 @@ def test_frontier_steering_changes_later_context(tmp_path: Path) -> None:
     )
     frontier_item = next(item for item in second_context["items"] if item["id"] == item_id)
     assert frontier_item["data"]["status"] == "paused"
+
+
+def test_frontier_shorthand_rejects_unknown_options_without_committing(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    update = tmp_path / "setup.json"
+    update.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "base_revision": 0,
+                "author": {"kind": "agent", "name": "agent"},
+                "operations": [
+                    {"op": "frontier.lane.create", "local_id": "lane", "name": "promising"}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    created = json.loads(
+        run_research_command(
+            ["update", "--repo", str(repo), "--file", str(update), "--json"]
+        ).output
+    )
+
+    result = run_frontier_command(
+        [
+            "add",
+            "--lane",
+            created["created_ids"]["lane"],
+            "--direction",
+            "try another seed",
+            "--rationale",
+            "resolve uncertainty",
+            "--prioritty",
+            "80",
+            "--repo",
+            str(repo),
+            "--json",
+        ]
+    )
+
+    assert result.exit_status == 2
+    state = read_state(repo)
+    assert state.revision == 1
+    assert state.frontier_items == {}

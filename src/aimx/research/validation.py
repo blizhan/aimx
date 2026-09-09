@@ -31,6 +31,7 @@ _AGENDA_TRANSITIONS = {
     "abandoned": {"proposed"},
     "completed": set(),
 }
+_AGENDA_TERMINAL_STATUS = {"completed"}
 
 
 @dataclass(frozen=True)
@@ -338,7 +339,9 @@ def _compile_operation(
         target = operation.get("agenda_status")
         if target not in _AGENDA_STATUS:
             raise ValidationError(f"Unsupported agenda status: {target!r}")
-        if target != current and target not in _AGENDA_TRANSITIONS[current]:
+        if (target == current and current in _AGENDA_TERMINAL_STATUS) or (
+            target != current and target not in _AGENDA_TRANSITIONS[current]
+        ):
             raise ValidationError(
                 f"Invalid agenda transition: {current} -> {target}", code="invalid_transition"
             )

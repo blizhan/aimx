@@ -89,7 +89,7 @@ def compile_context(state: ResearchState, objective: str, budget: int) -> dict[s
 
     # Active policy artifacts remain visible even if there are no matching
     # findings. They are packed in stable priority order after knowledge.
-    for item in _policy_items(state):
+    for item in _policy_items(state, indexes):
         key = (item["kind"], item["id"])
         if key in selected_by_key:
             continue
@@ -320,7 +320,10 @@ def _add_related_frontier_and_agenda(
     return items
 
 
-def _policy_items(state: ResearchState) -> list[dict[str, Any]]:
+def _policy_items(
+    state: ResearchState,
+    indexes: _ContextIndexes,
+) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     frontiers = [
         frontier
@@ -336,6 +339,10 @@ def _policy_items(state: ResearchState) -> list[dict[str, Any]]:
     )
     for frontier in frontiers:
         items.append(_item("frontier_item", frontier))
+        for annotation_id in indexes.annotation_ids_by_target.get(
+            ("frontier_item", frontier["id"]), ()
+        ):
+            items.append(_item("annotation", state.annotations[annotation_id]))
         lane_id = frontier.get("lane_id")
         if lane_id in state.lanes:
             items.append(_item("frontier_lane", state.lanes[lane_id]))
@@ -353,7 +360,12 @@ def _policy_items(state: ResearchState) -> list[dict[str, Any]]:
             str(item.get("id", "")),
         )
     )
-    items.extend(_item("agenda_item", agenda) for agenda in agendas)
+    for agenda in agendas:
+        items.append(_item("agenda_item", agenda))
+        for annotation_id in indexes.annotation_ids_by_target.get(
+            ("agenda_item", agenda["id"]), ()
+        ):
+            items.append(_item("annotation", state.annotations[annotation_id]))
     for annotation in state.annotations.values():
         if annotation.get("target_kind") == "research_state":
             items.append(_item("annotation", annotation))

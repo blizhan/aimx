@@ -146,12 +146,30 @@ def test_active_frontier_and_agenda_are_available_without_matching_findings() ->
                 "created_revision": 2,
             }
         },
+        annotations={
+            "ann_frontier": {
+                "id": "ann_frontier",
+                "target_kind": "frontier_item",
+                "target_id": "front_1",
+                "text": "Pause until the baseline is verified.",
+                "author": {"kind": "human", "name": "reviewer"},
+            },
+            "ann_agenda": {
+                "id": "ann_agenda",
+                "target_kind": "agenda_item",
+                "target_id": "agenda_1",
+                "text": "Use the corrected seed list.",
+                "author": {"kind": "human", "name": "reviewer"},
+            },
+        },
     )
     payload = compile_context(state, "unrelated objective", 10_000)
     assert {item["id"] for item in payload["items"]} == {
         "lane_1",
         "front_1",
         "agenda_1",
+        "ann_frontier",
+        "ann_agenda",
     }
 
 

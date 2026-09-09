@@ -8,7 +8,7 @@ from aimx.commands.finding import run_finding_command
 from aimx.commands.lineage import run_lineage_command
 from aimx.commands.research import run_research_command
 from aimx.research.models import ResearchUpdate
-from aimx.research.store import apply_update
+from aimx.research.store import apply_update, read_state
 
 
 def _json_output(result) -> dict:
@@ -94,6 +94,21 @@ def test_findings_lineage_and_annotations_survive_a_second_process(
 
     after = hashlib.sha256(sentinel.read_bytes()).hexdigest()
     assert before == after
+
+
+def test_finding_shorthand_rejects_unknown_options_without_committing(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    finding_id = _commit_finding_with_evidence(repo, "a" * 32)
+
+    result = run_finding_command(
+        ["accept", finding_id, "--reasn", "typo", "--repo", str(repo), "--json"]
+    )
+
+    assert result.exit_status == 2
+    assert read_state(repo).revision == 1
 
 
 def test_research_context_reads_durable_annotations(tmp_path: Path) -> None:

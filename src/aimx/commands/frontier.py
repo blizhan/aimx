@@ -13,6 +13,14 @@ from aimx.commands.research import (
 from aimx.research.errors import ResearchError, ValidationError
 from aimx.rendering.research_views import render_error, render_frontier
 
+_ALLOWED_OPTIONS = {
+    "lane-add": frozenset({"description"}),
+    "add": frozenset({"lane", "finding", "direction", "rationale", "priority"}),
+    "move": frozenset({"lane"}),
+    "pause": frozenset({"reason"}),
+    "retire": frozenset({"reason"}),
+}
+
 
 def run_frontier_command(args: list[str]) -> ResearchCommandResult:
     if not args:
@@ -26,7 +34,9 @@ def run_frontier_command(args: list[str]) -> ResearchCommandResult:
                 raise ValidationError(f"Unsupported frontier show option: {rest[0]}")
             return ResearchCommandResult(0, output=render_frontier(state, output_json=output_json, repo=str(root)))
 
-        options = _options(rest)
+        if command not in _ALLOWED_OPTIONS:
+            raise ValidationError(f"Unsupported frontier command: {command}")
+        options = _options(rest, allowed=_ALLOWED_OPTIONS[command])
         if command == "lane-add":
             name = _positional(options)
             operation = {"op": "frontier.lane.create", "local_id": "lane", "name": name}
@@ -68,9 +78,6 @@ def run_frontier_command(args: list[str]) -> ResearchCommandResult:
                 }
                 if options.get("reason"):
                     operation["reason"] = options["reason"]
-        else:
-            raise ValidationError(f"Unsupported frontier command: {command}")
-
         update = build_update(
             state,
             [operation],
