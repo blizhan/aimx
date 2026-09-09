@@ -1,5 +1,7 @@
 # aimx
 
+**English | [简体中文](./README.zh-CN.md)**
+
 ![aimx trace output preview](static/trace.png)
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
@@ -91,6 +93,121 @@ aimx trace --repo data
   filters and sampling controls.
 - **Read-only defaults**: inspection, query, diagnostic, and passthrough flows
   do not mutate `.aim` repository data.
+- **Durable AutoResearch control plane**: keep Findings, lineage, human
+  steering, bounded context, and next-experiment contracts in the Aimx-owned
+  `.aimx/research` sidecar while Aim remains the evidence source.
+
+## AutoResearch
+
+Aimx provides a durable **research control plane** around Aim experiment
+evidence. It deliberately separates experiment data, research meaning, and
+agent execution:
+
+- **Aim** stores what happened: runs, params, metrics, traces, images, and
+  distributions.
+- **Aimx Research State** stores what was learned and what should happen next:
+  Findings, Lineage, Frontier policy, Agenda items, bounded context, and
+  provenance.
+- **External agents** such as Codex or Claude reason, change project code, and
+  execute experiments. Aimx does not host an agent or scheduler.
+- **Humans** can review, accept/reject, comment on, or redirect durable research
+  state without editing an agent prompt or relying on a previous chat session.
+
+> **Aim stores what happened. Aimx stores what we learned and what to do next.
+> The agent decides and executes.**
+
+### Architecture
+
+```mermaid
+flowchart TB
+    H[Human] -->|steer / review / govern| RS
+    A[External Agent\nCodex / Claude / others] <--> RS[Aimx Research Control Plane\nFinding · Lineage · Frontier · Agenda\nResearch Context · Next]
+    A -->|change code / run| P[Project / Experiment]
+    P -->|logs experiment evidence| AIM[Aim\nruns · params · metrics · traces · images]
+    AIM -->|read-only evidence| Q[aimx query / trace]
+    Q --> A
+    RS --> DB[.aimx/research/state.sqlite3]
+```
+
+Aim data under `.aim` remains the evidence source and stays read-only during
+Research State workflows. Explicit research writes go only to the Aimx-owned
+`.aimx/research/state.sqlite3` sidecar.
+
+### Core concepts
+
+| Concept | Role |
+| --- | --- |
+| **Finding** | A durable, evidence-grounded research claim. |
+| **Lineage** | Typed relationships between Findings such as support, challenge, refinement, or supersession. |
+| **Frontier** | Human/agent-steerable research directions and priorities. |
+| **Agenda** | Persisted Experiment Contracts that describe already-proposed next work. |
+| **Research Context** | Deterministic, objective-specific shared memory compiled under a byte budget. |
+| **ResearchUpdate** | One atomic mutation that records Findings, lineage, annotations, Frontier changes, and Agenda lifecycle changes. |
+
+### One research round
+
+```text
+research context
+    -> research next / agenda
+    -> agent reasons, changes code, and runs the experiment
+    -> Aim records evidence
+    -> aimx query / trace observes the result
+    -> agent interprets the evidence
+    -> research update
+    -> Finding / Lineage / Frontier / Agenda evolve
+    -> next round
+```
+
+The next agent session does not need the previous chat transcript. It can read
+the same Research State, compile a fresh bounded context, and continue from the
+persisted Agenda and Findings.
+
+```bash
+aimx research state --repo data --json
+aimx research context --repo data \
+  --objective "improve low-data accuracy" \
+  --budget 12000 --json
+aimx research next --repo data --json
+
+# After the external experiment and read-only Aim inspection:
+aimx research update --repo data --file update.json --dry-run --json
+aimx research update --repo data --file update.json --json
+```
+
+The `items` budget is measured in exact UTF-8 JSON bytes, not model tokens or
+experiment rounds. Research reads do not create `.aimx`; explicit updates write
+only `data/.aimx/research/state.sqlite3`. Revision conflicts return exit status
+`3`, requiring the caller to refresh context and reconsider its update rather
+than silently replay a stale decision.
+
+See the
+[AutoResearch protocol reference](skills/aimx/references/autoresearch-protocol.md)
+and the [feature quickstart](specs/007-research-state/quickstart.md) for the
+complete handoff and update contract.
+
+### Roadmap
+
+#### Research Control Plane V1 — implemented
+
+- [x] Durable Findings, annotations, governance, and Lineage
+- [x] Atomic ResearchUpdate with revision conflicts and idempotency
+- [x] Deterministic bounded Research Context
+- [x] Human/agent-steerable Frontier
+- [x] Durable Agenda / Experiment Contracts and deterministic `research next`
+- [x] Cross-session and cross-agent handoff
+- [x] Read-only Aim evidence integration
+
+#### Next directions
+
+- [ ] Agent execution/orchestration adapters
+- [ ] Experiment lifecycle adapters
+- [ ] Richer automated Finding synthesis
+- [ ] Research State visualization and exploration
+- [ ] Longer-running autonomous research loops
+
+These are directions rather than compatibility promises. Aimx will continue to
+keep the control-plane boundary explicit instead of turning into an implicit
+Aim mutator or a general-purpose scheduler.
 
 ## Commands
 
@@ -105,6 +222,10 @@ aimx trace --repo data
 | `aimx query images` | List and optionally preview matching image records. |
 | `aimx query params` | Compare run-level parameters across matching runs. |
 | `aimx trace` | Plot, tabulate, or export metric time series. |
+| `aimx research` | Read/update durable research state, bounded context, agenda, and next work. |
+| `aimx finding` | Inspect and govern durable findings. |
+| `aimx lineage` | Inspect and edit finding relationships. |
+| `aimx frontier` | Inspect and steer project-defined research directions. |
 
 Both `aimx query` and `aimx trace` accept optional **AimQL** expressions as
 their filter argument. When the expression is omitted or blank, `aimx` uses

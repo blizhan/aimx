@@ -85,6 +85,8 @@ Why `3.12`:
 - Existing local Aim repositories on disk, read-only; distribution histogram points are read from Aim sequence data under `.aim` (005-distribution-trace-visual)
 - Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, `numpy>=1.24`, `rich>=13.7`, `plotext>=5.3`, `textual-image>=0.12.0`, existing Aim SDK usage for owned query and trace commands; no new dependency planned (007-default-query-runtime)
 - Existing local Aim repositories on disk, read-only; query/trace data and run timing metadata are read from `.aim` repositories without modification (007-default-query-runtime)
+- Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library (`sqlite3`, `json`, `pathlib`, `uuid`, `datetime`), existing Aim SDK usage for read-only run-reference validation, existing `rich` rendering support; no new runtime dependency planned (008-research-state)
+- Aimx-owned local SQLite sidecar at `<repo>/.aimx/research/state.sqlite3` using append-only commit/event records; associated Aim repository remains read-only (008-research-state)
 
 ## Recent Changes
 - 001-aim-command-passthrough: Added Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, native Aim CLI (external runtime prerequisite for delegated commands), pytest for test automation

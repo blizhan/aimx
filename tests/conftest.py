@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Callable, Sequence
 
 import pytest
 
@@ -56,3 +56,45 @@ def sample_repo_dot_aim() -> Path:
     if not dot_aim.exists():
         pytest.skip("sample Aim repository is not available in this environment")
     return dot_aim
+
+
+@pytest.fixture
+def research_repo(tmp_path: Path) -> Path:
+    """Return a fresh repository root without pre-creating Aimx state."""
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    return repo
+
+
+@pytest.fixture
+def research_update_factory() -> Callable[..., dict[str, Any]]:
+    def _make(
+        base_revision: int = 0,
+        *,
+        operations: list[dict[str, Any]] | None = None,
+        author_kind: str = "agent",
+        author_name: str = "test-agent",
+        client_update_id: str | None = None,
+    ) -> dict[str, Any]:
+        value: dict[str, Any] = {
+            "schema_version": 1,
+            "base_revision": base_revision,
+            "author": {"kind": author_kind, "name": author_name},
+            "operations": operations
+            or [
+                {
+                    "op": "finding.create",
+                    "local_id": "finding",
+                    "claim": "The candidate improves accuracy.",
+                    "epistemic_status": "candidate",
+                    "confidence": "medium",
+                    "governance_status": "proposed",
+                }
+            ],
+        }
+        if client_update_id is not None:
+            value["client_update_id"] = client_update_id
+        return value
+
+    return _make
