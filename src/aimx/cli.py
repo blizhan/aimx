@@ -6,6 +6,10 @@ from aimx.commands.doctor import render_doctor
 from aimx.commands.help import render_help
 from aimx.commands.query import run_query_command
 from aimx.commands.trace import run_trace_command
+from aimx.commands.research import run_research_command
+from aimx.commands.finding import run_finding_command
+from aimx.commands.lineage import run_lineage_command
+from aimx.commands.frontier import run_frontier_command
 from aimx.commands.version import render_version
 from aimx.native_aim.locator import resolve_native_aim
 from aimx.native_aim.passthrough import run_passthrough
@@ -36,6 +40,34 @@ def run_cli(args: list[str]) -> int:
             return result.exit_status
         if command == "trace":
             result = run_trace_command(route.owned_args or [])
+            if result.output:
+                sys.stdout.write(f"{result.output}\n")
+            if result.error_message:
+                sys.stderr.write(f"{result.error_message}\n")
+            return result.exit_status
+        if command == "research":
+            result = run_research_command(route.owned_args or [])
+            if result.output:
+                sys.stdout.write(f"{result.output}\n")
+            if result.error_message:
+                sys.stderr.write(f"{result.error_message}\n")
+            return result.exit_status
+        if command == "finding":
+            result = run_finding_command(route.owned_args or [])
+            if result.output:
+                sys.stdout.write(f"{result.output}\n")
+            if result.error_message:
+                sys.stderr.write(f"{result.error_message}\n")
+            return result.exit_status
+        if command == "lineage":
+            result = run_lineage_command(route.owned_args or [])
+            if result.output:
+                sys.stdout.write(f"{result.output}\n")
+            if result.error_message:
+                sys.stderr.write(f"{result.error_message}\n")
+            return result.exit_status
+        if command == "frontier":
+            result = run_frontier_command(route.owned_args or [])
             if result.output:
                 sys.stdout.write(f"{result.output}\n")
             if result.error_message:

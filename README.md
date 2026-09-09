@@ -91,6 +91,42 @@ aimx trace --repo data
   filters and sampling controls.
 - **Read-only defaults**: inspection, query, diagnostic, and passthrough flows
   do not mutate `.aim` repository data.
+- **Durable AutoResearch control plane**: keep Findings, lineage, human
+  steering, bounded context, and next-experiment contracts in the Aimx-owned
+  `.aimx/research` sidecar while Aim remains the evidence source.
+
+## AutoResearch
+
+Aimx can carry research state across agent sessions without hosting an agent or
+running experiments. An external agent reads bounded context, selects a
+persisted Agenda Item, executes the experiment in the project environment,
+observes the resulting Aim run, and records the interpretation as one atomic
+ResearchUpdate.
+
+```bash
+aimx research state --repo data --json
+aimx research context --repo data \
+  --objective "improve low-data accuracy" \
+  --budget 12000 --json
+aimx research next --repo data --json
+
+# After the external experiment and read-only Aim inspection:
+aimx research update --repo data --file update.json --dry-run --json
+aimx research update --repo data --file update.json --json
+```
+
+The `items` budget is measured in exact UTF-8 JSON bytes. Research reads do
+not create `.aimx`; explicit updates write only
+`data/.aimx/research/state.sqlite3`. Aim data under `data/.aim` remains
+read-only. Revision conflicts return exit status `3`, requiring the agent to
+refresh context before reconsidering its update. See the
+[AutoResearch protocol reference](skills/aimx/references/autoresearch-protocol.md)
+and the [feature quickstart](specs/007-research-state/quickstart.md) for the
+full handoff.
+
+The local sidecar belongs to Aimx and can be removed independently when the
+project no longer needs its research history. It stores claims, provenance,
+policy, and references to Aim runs; raw metrics and artifacts remain in Aim.
 
 ## Commands
 
@@ -105,6 +141,10 @@ aimx trace --repo data
 | `aimx query images` | List and optionally preview matching image records. |
 | `aimx query params` | Compare run-level parameters across matching runs. |
 | `aimx trace` | Plot, tabulate, or export metric time series. |
+| `aimx research` | Read/update durable research state, bounded context, agenda, and next work. |
+| `aimx finding` | Inspect and govern durable findings. |
+| `aimx lineage` | Inspect and edit finding relationships. |
+| `aimx frontier` | Inspect and steer project-defined research directions. |
 
 Both `aimx query` and `aimx trace` accept optional **AimQL** expressions as
 their filter argument. When the expression is omitted or blank, `aimx` uses

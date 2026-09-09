@@ -9,7 +9,9 @@ description: Use when autoresearch, log_experiment, experiment analysis, or auto
 
 Use `aimx` as a read-only evidence collector for `autoresearch` `log_experiment`
 steps. Prefer JSON output so downstream agents can compare runs, explain model
-effects, and propose the next experiment from concrete Aim data.
+effects, and propose the next experiment from concrete Aim data. Aimx Research
+State adds the durable control-plane handoff for AutoResearch while leaving
+reasoning and experiment execution to the external agent.
 
 ## Fast Recipes
 
@@ -178,6 +180,54 @@ workflow when the scope is unclear or the question is complex.
      }
    }
    ```
+
+## AutoResearch protocol
+
+Use Aimx Research State as shared memory across agent sessions. The external
+agent owns reasoning and experiment execution; Aimx owns durable state,
+bounded context, human steering, and experiment contracts.
+
+1. Read the current state and objective-specific context:
+
+   ```bash
+   aimx research state --repo <repo> --json
+   aimx research context --repo <repo> \
+     --objective "<current research objective>" \
+     --budget 12000 --json
+   ```
+
+2. Inspect persisted work before proposing new work:
+
+   ```bash
+   aimx research next --repo <repo> --json
+   aimx research agenda --repo <repo> --json
+   ```
+
+3. Execute the selected experiment in the external project workflow. Aimx
+   does not start a scheduler, modify project code, or execute training.
+
+4. Observe resulting Aim runs with the existing query, trace, or snapshot
+   commands. `collect_experiment_snapshot.py` remains read-only.
+
+5. Submit one atomic ResearchUpdate containing canonical Aim run references,
+   Findings, lineage, annotations, Frontier changes, and Agenda lifecycle
+   changes as appropriate:
+
+   ```bash
+   aimx research update --repo <repo> --file update.json --dry-run --json
+   aimx research update --repo <repo> --file update.json --json
+   ```
+
+   Use the `revision` returned by `research state` or `research context` as
+   `base_revision`. If another writer advances the state, exit status `3` and
+   `revision_conflict` require a fresh context and a reconsidered update.
+
+6. Repeat the context, agenda, external execution, Aim observation, and
+   ResearchUpdate steps for the next round. A different agent product can use
+   the same JSON contracts and local `.aimx/research` state.
+
+For the complete contract, including handoff examples and empty-state behavior,
+read [references/autoresearch-protocol.md](references/autoresearch-protocol.md).
 
 ## Analysis Workflow
 

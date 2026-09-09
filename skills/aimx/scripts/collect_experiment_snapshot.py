@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Collect a read-only aimx experiment snapshot for autoresearch logs."""
+"""Collect the read-only Observe step for an AutoResearch handoff.
+
+The snapshot contains Aim evidence only. A calling agent may use the result to
+author a ResearchUpdate, but this collector never writes `.aim` or
+`.aimx/research` state.
+"""
 
 from __future__ import annotations
 

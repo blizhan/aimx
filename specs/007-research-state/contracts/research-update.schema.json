@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aimx.local/contracts/research-update.schema.json",
+  "title": "Aimx ResearchUpdate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "base_revision", "author", "operations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "base_revision": {"type": "integer", "minimum": 0},
+    "client_update_id": {"type": "string", "minLength": 1},
+    "author": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {"enum": ["agent", "human", "system"]},
+        "name": {"type": "string", "minLength": 1}
+      }
+    },
+    "message": {"type": "string"},
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/operation"}
+    }
+  },
+  "$defs": {
+    "entityRef": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Durable entity ID or same-update reference such as $f1."
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "run_hash"],
+      "properties": {
+        "kind": {"const": "aim_run"},
+        "run_hash": {"type": "string", "minLength": 1},
+        "role": {"type": "string"},
+        "note": {"type": "string"}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "required": ["op"],
+      "properties": {
+        "op": {
+          "enum": [
+            "finding.create",
+            "finding.assess",
+            "finding.governance",
+            "relation.create",
+            "relation.retract",
+            "annotation.create",
+            "frontier.lane.create",
+            "frontier.lane.rename",
+            "frontier.lane.retire",
+            "frontier.item.create",
+            "frontier.item.move",
+            "frontier.item.set_priority",
+            "frontier.item.set_status",
+            "frontier.item.update",
+            "agenda.item.create",
+            "agenda.item.transition",
+            "agenda.item.attach_evidence",
+            "agenda.item.set_priority"
+          ]
+        },
+        "local_id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"},
+        "finding_id": {"$ref": "#/$defs/entityRef"},
+        "relation_id": {"$ref": "#/$defs/entityRef"},
+        "annotation_target_kind": {"enum": ["research_state", "finding", "relation", "frontier_item", "agenda_item"]},
+        "annotation_target_id": {"$ref": "#/$defs/entityRef"},
+        "lane_id": {"$ref": "#/$defs/entityRef"},
+        "frontier_item_id": {"$ref": "#/$defs/entityRef"},
+        "agenda_item_id": {"$ref": "#/$defs/entityRef"},
+        "claim": {"type": "string", "minLength": 1},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+        "epistemic_status": {"enum": ["candidate", "validated", "contradicted"]},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "governance_status": {"enum": ["proposed", "accepted", "rejected"]},
+        "source": {"$ref": "#/$defs/entityRef"},
+        "target": {"$ref": "#/$defs/entityRef"},
+        "relation_type": {"enum": ["derived_from", "supports", "challenges", "refines", "supersedes", "tests", "related_to"]},
+        "text": {"type": "string", "minLength": 1},
+        "reason": {"type": "string"},
+        "name": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "direction": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1},
+        "priority": {"type": "integer", "minimum": 0, "maximum": 100},
+        "frontier_status": {"enum": ["active", "paused", "retired"]},
+        "objective": {"type": "string", "minLength": 1},
+        "hypothesis": {"type": "string"},
+        "question": {"type": "string"},
+        "motivating_finding_ids": {"type": "array", "items": {"$ref": "#/$defs/entityRef"}},
+        "frontier_item_ids": {"type": "array", "items": {"$ref": "#/$defs/entityRef"}},
+        "controls": {},
+        "factors": {},
+        "constraints": {},
+        "success_criteria": {},
+        "agenda_status": {"enum": ["proposed", "active", "completed", "failed", "abandoned"]}
+      }
+    }
+  }
+}
