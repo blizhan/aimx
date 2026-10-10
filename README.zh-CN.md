@@ -39,6 +39,7 @@ npx skills install blizhan/aimx
 安装后可以使用：
 
 - `$aimx`：只读收集和分析实验参数、指标、曲线、图片以及研究状态（Research State）。
+- `$aimx-autoresearch`：按轮数预算运行多个 subagent，支持逐 agent 指定 model / reasoning effort，以及显式续跑。
 - `$aimx-hydra-lightning-builder`：Hydra + Lightning + Aim 脚手架和迁移审计工作流。
 
 执行实验检查的环境中需要能够调用 `aimx` CLI。
@@ -213,6 +214,55 @@ context 并重新判断，而不是静默重放旧决策。
 - [Research State quickstart](specs/007-research-state/quickstart.md)
 - [Research State specification](specs/007-research-state/spec.md)
 
+### 按预算运行多 Agent 研究
+
+`$aimx-autoresearch` 把现有研究控制平面连接到当前 Agent 宿主。配置 goal、验收标准、
+`max_rounds` 和默认 agent 列表；每个 agent 可分别指定 `model`、`reasoning_effort`。
+逐轮覆盖会替换该轮完整的 agent 列表，省略设置时继承宿主默认值。
+显式设置无法满足时会停止并说明，不静默换模型或忽略 effort。
+
+**只有主 agent 生成、dry-run 并提交 ResearchUpdate。** Subagent 在独立 worktree
+执行任务，只返回结构化结果和证据，不写 Research State，也不使用其便捷写命令或修改
+循环检查点。主 agent 在独立集成 worktree 验证选中的修改，合入主工作区后，使用新基线进入下一轮。
+
+安装后可这样调用：
+
+```text
+使用 $aimx-autoresearch 按 autoresearch.json 运行，直到有证据证明 goal 达成，
+或者轮数预算耗尽。ResearchUpdate 只由主 agent 提交。
+```
+
+从[配置示例](skills/aimx-autoresearch/assets/config.example.json)开始，调整路径、目标、
+轮数和宿主支持的模型 ID。路径相对于配置文件解析。修改代码的循环需要干净的主工作区，
+包括用户编写的配置文件。[循环契约](skills/aimx-autoresearch/references/loop-contract.md)
+包含任务模板、结果格式和检查点用法。
+
+在本仓库中可直接使用标准库辅助脚本：
+
+```bash
+# 只读校验，输出各轮实际配置
+uv run python skills/aimx-autoresearch/scripts/control.py validate --config autoresearch.json
+
+# 显式创建检查点，不启动 agent 或训练
+uv run python skills/aimx-autoresearch/scripts/control.py init --config autoresearch.json --loop-id accuracy-study
+
+# 检查已有循环，并核对续跑配置
+uv run python skills/aimx-autoresearch/scripts/control.py status \
+  --loop-dir data/.aimx/autoresearch/accuracy-study --config autoresearch.json
+```
+
+安装到其他位置时，调用安装后的 skill 目录中的脚本，不假设研究项目也有相同目录。
+
+一轮是一批配置明确的任务，在首次派发尝试前消耗预算，失败也计入轮数。
+宿主并发容量不足时分批派发，仍算同一轮；失败任务不在同轮额外重派。
+汇总后按原始验收标准判断 goal，最后一轮达成 goal 时优先报告成功。
+
+续跑时指定已有 `loop_dir` 和原始配置，沿用剩余预算及任务标识。
+无法确认中断任务状态时先停止并核对，不自动重启未知实验。检查点保存在
+`<aim-repo>/.aimx/autoresearch/<loop-id>/`，与 Research State 数据库独立。
+辅助脚本不会强制鉴别主/子 agent 身份，也不启动 agent 或训练；角色约束与模型能力检查由宿主和主 agent 执行。
+第一版支持显式续跑，不提供后台调度、自动进程恢复、费用预算或 GPU 调度。
+
 ### Roadmap
 
 #### Research Control Plane V1 — 已实现
@@ -226,6 +276,7 @@ context 并重新判断，而不是静默重放旧决策。
 - [x] 跨 session / 跨 Agent handoff
 - [x] Aim evidence 只读集成
 - [x] 两轮 AutoResearch protocol 和 agent-neutral JSON contract
+- [x] 支持配置与检查点的有轮数预算多 Agent AutoResearch skill
 
 #### 下一步方向
 

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "project_root": ".",
+  "aim_repo": "./data",
+  "goal": {
+    "description": "Investigate which changes improve held-out accuracy.",
+    "success_criteria": [
+      "Produce an evidence-backed comparison against the fixed baseline.",
+      "Validate the selected changes and explain remaining uncertainty."
+    ]
+  },
+  "max_rounds": 3,
+  "default_agents": [
+    {"id": "optimizer"},
+    {"id": "architecture"}
+  ],
+  "round_overrides": {
+    "3": {
+      "agents": [
+        {"id": "replication", "model": "gpt-6.1-sol", "reasoning_effort": "high"}
+      ]
+    }
+  },
+  "context_budget_bytes": 12000
+}

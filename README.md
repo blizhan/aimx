@@ -45,6 +45,8 @@ npx skills install blizhan/aimx
 After installation, invoke:
 
 - `$aimx` for read-only experiment evidence collection.
+- `$aimx-autoresearch` for bounded research rounds with multiple subagents,
+  per-agent model/effort settings, and explicit checkpoint resume.
 - `$aimx-hydra-lightning-builder` for Hydra + Lightning + Aim scaffold and
   migration-audit workflows.
 
@@ -185,6 +187,65 @@ See the
 and the [feature quickstart](specs/007-research-state/quickstart.md) for the
 complete handoff and update contract.
 
+### Bounded multi-agent research
+
+`$aimx-autoresearch` connects the research control plane to the current agent
+host. Supply a goal and success criteria, a maximum number of rounds, and a
+default agent list. Each agent can specify `model` and `reasoning_effort`;
+per-round overrides replace the full agent list for that round. Omitted
+settings inherit host defaults. Explicit settings must be supported by the
+host; the skill stops rather than silently substituting them.
+
+**Only the lead agent authors, dry-runs, and submits ResearchUpdate.** Subagents
+run isolated tasks and return structured results/evidence. They must not write
+Research State, use its convenience write commands, or modify loop checkpoints.
+The lead integrates selected changes through a validated integration worktree,
+then uses the merged primary-workspace version as the next round's baseline.
+
+For example, invoke the installed skill with:
+
+```text
+Use $aimx-autoresearch with autoresearch.json. Run until its goal is supported
+by evidence or its round budget is exhausted. Only the lead writes ResearchUpdate.
+```
+
+Start from the [example config](skills/aimx-autoresearch/assets/config.example.json).
+Paths are relative to the config file; update paths and native model IDs for
+your project/host. Keep code-changing loops' primary workspace clean, including
+user-authored config files. The complete [loop contract](skills/aimx-autoresearch/references/loop-contract.md)
+describes dispatch, results, and checkpoint patches.
+
+From this repository, the standard-library helper can be used directly:
+
+```bash
+# Read-only validation and resolved settings for every round
+uv run python skills/aimx-autoresearch/scripts/control.py validate --config autoresearch.json
+
+# Explicitly create a loop checkpoint (does not launch any tasks)
+uv run python skills/aimx-autoresearch/scripts/control.py init --config autoresearch.json --loop-id accuracy-study
+
+# Inspect the existing loop and verify its original config
+uv run python skills/aimx-autoresearch/scripts/control.py status \
+  --loop-dir data/.aimx/autoresearch/accuracy-study --config autoresearch.json
+```
+
+When installed elsewhere, use the script inside that installed skill directory,
+not a path assumed to exist in the research project.
+
+One round is one configured batch: it consumes budget before the first spawn
+attempt, including failed rounds. Host capacity may require waves within the
+same round. Failed slots are not retried within that round. The lead evaluates
+all original criteria after aggregation; a final-round success takes precedence
+over budget exhaustion.
+
+To resume, invoke `$aimx-autoresearch` with the existing `loop_dir` and original
+config. Budget and recorded task identities remain unchanged; unknown live
+task state blocks further dispatch until reconciled. Checkpoints are stored in
+`<aim-repo>/.aimx/autoresearch/<loop-id>/`, independently of Research State.
+The helper neither enforces agent roles nor starts agents/training: role rules
+and native model support are the host/lead's responsibility. This V1 provides
+explicit resume, not background scheduling, process recovery, or cost/GPU budgets.
+
 ### Roadmap
 
 #### Research Control Plane V1 — implemented
@@ -196,6 +257,7 @@ complete handoff and update contract.
 - [x] Durable Agenda / Experiment Contracts and deterministic `research next`
 - [x] Cross-session and cross-agent handoff
 - [x] Read-only Aim evidence integration
+- [x] Bounded multi-agent AutoResearch skill with configuration and checkpoints
 
 #### Next directions
 

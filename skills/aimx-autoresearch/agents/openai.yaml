@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aimx AutoResearch"
+  short_description: "Run bounded research rounds with subagents"
+  default_prompt: "Use $aimx-autoresearch to run a bounded research loop with explicit per-round subagent settings and evidence-based goal checks."

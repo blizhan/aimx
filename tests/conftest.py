@@ -1,9 +1,47 @@
 from __future__ import annotations
 
+import importlib.util
+import json
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
 import pytest
+
+
+@pytest.fixture
+def autoresearch_control():
+    path = Path(__file__).resolve().parents[1] / "skills/aimx-autoresearch/scripts/control.py"
+    spec = importlib.util.spec_from_file_location("autoresearch_control_test", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture
+def autoresearch_config(tmp_path: Path) -> Path:
+    (tmp_path / "project").mkdir()
+    (tmp_path / "data" / ".aim").mkdir(parents=True)
+    path = tmp_path / "autoresearch.json"
+    path.write_text(json.dumps({
+        "schema_version": 1,
+        "project_root": "project",
+        "aim_repo": "data/.aim",
+        "goal": {
+            "description": "Improve score with validated changes",
+            "success_criteria": ["Score reaches 4", "Project validation passes"],
+        },
+        "max_rounds": 2,
+        "default_agents": [
+            {"id": "explore", "model": "fixture/explorer", "reasoning_effort": "low"},
+            {"id": "verify"},
+        ],
+        "round_overrides": {"2": {"agents": [
+            {"id": "explore", "model": "fixture/researcher", "reasoning_effort": "high"},
+            {"id": "verify", "model": "fixture/reviewer", "reasoning_effort": "medium"},
+        ]}},
+    }), encoding="utf-8")
+    return path
 
 
 def _sample_repo_root() -> Path:
