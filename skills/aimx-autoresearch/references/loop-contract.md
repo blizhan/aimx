@@ -25,7 +25,7 @@ An empty Research State is valid and does not require invented Aim evidence.
 | `max_rounds` | Required positive integer; a failed started round still counts. |
 | `default_agents` | Required nonempty list of agent settings. |
 | `round_overrides` | Optional object with canonical 1-based round numbers as keys and `{ "agents": [...] }` values. Each list replaces the entire default list for that round. |
-| `context_budget_bytes` | Optional positive integer, default 12000; passed to `research context --budget`. |
+| `context_budget_bytes` | Optional positive integer, default 12000; passed to `research context --budget`, which counts the complete UTF-8 JSON response including metadata, evidence references, selection notes, and LF. A fixed budget may return fewer knowledge items than the old items-only behavior. |
 
 Each agent has a unique `id` within its round and optional nonempty `model` and
 `reasoning_effort` strings. IDs use letters, digits, `_` or `-`, start with a
@@ -38,7 +38,37 @@ Validation checks shape, not runtime availability. The lead must separately
 verify native support and propagate each explicit setting unchanged, or use
 a documented equivalent field mapping. No silent downgrade is permitted.
 Unsupported fields and duplicate JSON keys are rejected to catch typos in
-budgets or settings.
+budgets or settings. Before reservation, the lead verifies the actual Aimx
+entrypoint with version/help/state reads and the required update dry-run,
+checks file evidence independently from Aim SDK access, and confirms every
+round's model/effort with the host. Run the project's evaluator preflight with
+its declared argv and save the command, cwd, exit status, result identity,
+capability checks, and limitations as a lead-reviewed artifact. The preflight
+must be ready before dispatch and must not train. A required missing or
+unverified capability blocks the loop; a version number alone is not proof.
+
+Example project capabilities, preflight, and experiment-contract payloads are
+provided in `assets/project-capabilities.example.json`,
+`assets/preflight.example.json`, and `assets/experiment-contract.example.json`.
+They are templates with placeholder identities; replace them with real report
+files and verified digests before use. The existing config remains unchanged.
+
+## Frozen experiment and failure policy
+
+Before `begin-round` or reserving a slot, persist a complete experiment contract
+with question, interventions, fixed controls, expected evidence, disconfirmation,
+confounders, evaluator protocol digest/argv/metric/acceptance rule, dataset
+scope IDs, candidate fingerprint, observation revision, resource declarations,
+and `stop_pending` or `continue_independent` policy. Confirm the policy is
+supported by the host; otherwise stop pending work. For
+`continue_independent`, put `host_failure_policy_verified: true` and the exact
+`host_failure_policy_preflight_sha256` in `extensions`; the digest must match
+one cited local preflight artifact. Verify the latest dataset
+observation snapshot before dispatch and again before scoring. Independent
+confirmation needs complete declared-unobserved scopes, a matching frozen
+candidate, and no recorded scoring, development conversion, or unresolved
+overlap. Use `exploratory` if that evidence is missing. Logs cannot prove that
+unrecorded labels were not accessed.
 
 ## Dispatch template — include in every task
 
@@ -81,7 +111,10 @@ must come from native runtime metadata; omit them when unknown.
 
 Required: `status` (`succeeded`, `failed`, `interrupted`), nonempty `summary`,
 and `evidence` (array of nonempty reference strings, possibly empty for failure
-or missing evidence). Optional: `candidate_ref` and `actual_settings`.
+or missing evidence). Optional: `candidate_ref` and `actual_settings`. The
+skill lead records independent `execution_status`, `artifact_status`,
+`evaluation_status`, and `audit_status` axes in an `execution.outcome.record`;
+the worker status does not imply scientific success or goal completion.
 Use canonical `aim_run:<full-hash>` references for Aim evidence; use durable
 absolute files or source URLs for other evidence. The lead inspects references
 before relying on them and converts Aim run references into the existing
@@ -141,9 +174,13 @@ Code-changing tasks require a real isolated Git worktree.
 
 Then checkpoint `dispatch_status: "started"` and the native `task_id`. A
 reserved slot means a spawn may already have occurred. Never launch it again
-after a crash. To finish, checkpoint `dispatch_status: "finished"` and `result`.
-An undispatched slot can only finish as failed/interrupted, never succeeded.
-Keep a stable task ID; use a later round for another attempt.
+after a crash. After a failure, apply the frozen policy before dispatching
+pending slots: `stop_pending` stops new dispatches; `continue_independent`
+requires verified host support and an independent remaining task. Neither
+policy promises to cancel work already running. To finish, checkpoint
+`dispatch_status: "finished"` and `result`. An undispatched slot can only
+finish as failed/interrupted, never succeeded. Keep a stable task ID; use a
+later round for another attempt.
 
 ### Complete a round after lead aggregation
 
@@ -201,4 +238,12 @@ or `interrupted`. After explicit resume and reconciliation, use
 `{ "status": "running" }`. These transitions never refund budget or reset a
 slot. With no active round, an evidence-backed assessment can mark an already
 achieved goal without spending a round. Completed-round assessments derive
-`goal_met` before `budget_exhausted`. Terminal loops cannot be reopened.
+`goal_met` before `budget_exhausted`. Terminal loops cannot be reopened. For terminal, blocked, interrupted, or
+failed handoffs, query `aimx research overview --repo "$AIM_REPO" --loop
+"$LOOP_ID" --json`; include the original criteria/assessment, actual repo and
+state/checkpoint locations, persisted receipt, artifacts, and pending
+reconciliation. A result file is not proof that ResearchUpdate committed. Use a
+stable key and fingerprint; `not_found` describes only the receipt query
+snapshot. Reconcile with the exact saved update and key. Terminal follow-up
+research uses a new `follow_up` Activity and cannot alter old checkpoint bytes,
+criteria, rounds, or goal assessment.

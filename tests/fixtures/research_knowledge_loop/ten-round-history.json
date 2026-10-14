@@ -1,0 +1,8 @@
+{
+  "rounds": 10,
+  "annotations_per_round": 2,
+  "early_gain": "A candidate improves the local observed window.",
+  "round_9_correction": "The audit finds the gain is sensitive to the seed selection.",
+  "round_10_correction": "The extended historical window has nearly zero incremental gain and does not establish future generalization.",
+  "expected": {"must_keep_corrections_with_seed": true, "annotations_total": 20, "unknown_free_text_relations_are_not_inferred": true}
+}

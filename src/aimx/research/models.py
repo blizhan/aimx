@@ -79,17 +79,30 @@ class Author:
 @dataclass(frozen=True)
 class EvidenceReference:
     kind: str
-    run_hash: str
+    run_hash: str | None = None
+    location: str | None = None
+    sha256: str | None = None
+    size_bytes: int | None = None
+    evidence_type: str | None = None
+    purpose: str | None = None
+    source_activity_id: str | None = None
+    resolved_location: str | None = None
     role: str | None = None
     note: str | None = None
 
-    def as_dict(self) -> dict[str, str]:
-        result: dict[str, str] = {"kind": self.kind, "run_hash": self.run_hash}
-        if self.role is not None:
-            result["role"] = self.role
-        if self.note is not None:
-            result["note"] = self.note
-        return result
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> "EvidenceReference":
+        if not isinstance(value, dict) or value.get("kind") not in {"aim_run", "local_artifact"}:
+            raise ValidationError("Unsupported evidence reference", code="invalid_schema")
+        if value["kind"] == "aim_run" and not isinstance(value.get("run_hash"), str):
+            raise ValidationError("Aim evidence requires run_hash", code="invalid_schema")
+        if value["kind"] == "local_artifact" and not isinstance(value.get("sha256"), str):
+            raise ValidationError("Local artifact evidence requires sha256", code="invalid_schema")
+        fields = {key: value.get(key) for key in cls.__dataclass_fields__}
+        return cls(**fields)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {key: value for key, value in asdict(self).items() if value is not None}
 
 
 @dataclass(frozen=True)
@@ -187,6 +200,8 @@ class AgendaItem:
     created_commit_id: str
     created_revision: int
     result_commit_ids: tuple[str, ...] = ()
+    source_activity_id: str | None = None
+    experiment_contract: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -266,6 +281,11 @@ class ResearchState:
     lanes: dict[str, dict[str, Any]] = field(default_factory=dict)
     frontier_items: dict[str, dict[str, Any]] = field(default_factory=dict)
     agenda_items: dict[str, dict[str, Any]] = field(default_factory=dict)
+    activities: dict[str, dict[str, Any]] = field(default_factory=dict)
+    dataset_scopes: dict[str, dict[str, Any]] = field(default_factory=dict)
+    observations: dict[str, dict[str, Any]] = field(default_factory=dict)
+    outcomes: dict[str, dict[str, Any]] = field(default_factory=dict)
+    evidence_reviews: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     commits: list[dict[str, Any]] = field(default_factory=list)
 
     def clone(self) -> "ResearchState":
@@ -283,6 +303,15 @@ class ResearchState:
                 "items": _sorted_values(self.frontier_items),
             },
             "agenda": {"items": _sorted_values(self.agenda_items)},
+            "activities": _sorted_values(self.activities),
+            "dataset_scopes": _sorted_values(self.dataset_scopes),
+            "observations": _sorted_values(self.observations),
+            "outcomes": _sorted_values(self.outcomes),
+            "evidence_reviews": [
+                copy.deepcopy(review)
+                for fingerprint in sorted(self.evidence_reviews)
+                for review in self.evidence_reviews[fingerprint]
+            ],
         }
         if repo is not None:
             result["repo"] = repo
@@ -298,6 +327,10 @@ class ResearchState:
             ("frontier_lane", self.lanes),
             ("frontier_item", self.frontier_items),
             ("agenda_item", self.agenda_items),
+            ("activity", self.activities),
+            ("dataset_scope", self.dataset_scopes),
+            ("observation", self.observations),
+            ("outcome", self.outcomes),
         ):
             for value in _sorted_values(values):
                 items.append({"kind": kind, "id": value.get("id"), "data": value})

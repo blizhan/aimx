@@ -29,10 +29,12 @@ Include these restrictions in **every** task, using the dispatch template in
 
 ## Prepare the bounded plan
 
-Read [references/loop-contract.md](references/loop-contract.md) for config,
-checkpoint, and result formats. Resolve script paths from **this installed
-skill directory**, not the target project's `skills/` directory. The examples
-below use `AUTORESEARCH_SKILL_DIR` for that absolute directory.
+Read [references/loop-contract.md](references/loop-contract.md) and
+[references/research-handoff.md](references/research-handoff.md) for config,
+checkpoint, experiment, preflight, and receipt contracts. Resolve script paths
+from **this installed skill directory**, not the target project's `skills/`
+directory. The examples below use `AUTORESEARCH_SKILL_DIR` for that absolute
+directory.
 
 1. Convert natural-language requests into the same JSON config used for file
    invocation. Establish a finite `max_rounds`, agent list, goal, and original
@@ -54,7 +56,23 @@ below use `AUTORESEARCH_SKILL_DIR` for that absolute directory.
 4. Inspect the project and its validation commands. Code-changing loops require
    a clean primary Git worktree; ignore only loop-owned `.aimx` state. Preserve
    existing user edits. Use native worktree support or Git for isolation.
-5. Read the research state and relevant evidence. Initialize a loop and save
+5. Bind the actual `aimx` executable. Verify its version, static help,
+   Research State reads, required update dry-run, receipt and evidence commands.
+   Check local file evidence separately from Aim SDK access. Verify each
+   configured round's model and effort with the host. Run the project's
+   evaluator preflight using its declared argv, without training or changing
+   project files. Save the actual command, cwd, result identity, capability
+   statuses, resource reporting limits, host failure policy, and precise gaps as
+   a preflight artifact. Required missing or unverified capability blocks
+   dispatch; version numbers alone do not prove readiness.
+6. Freeze the complete Agenda experiment contract, dataset scopes, candidate
+   fingerprint, and observation revision before reserving work. Recheck the
+   observation snapshot immediately before scoring. Independent confirmation
+   needs complete declared-unobserved coverage, a matching candidate freeze,
+   and no recorded overlap or prior scoring/development. Use `exploratory` when
+   independence cannot be established; records cannot prove that unrecorded
+   labels were not read.
+7. Read the research state and relevant evidence. Initialize a loop and save
    its returned `loop_dir`. If the goal is already met, checkpoint a
    criterion-by-criterion assessment without launching a round:
 
@@ -77,7 +95,13 @@ writing Research State. Only the lead performs the following orchestration.
    Persist task files and the baseline before dispatch.
    Read-only tasks without Git may use separate task/output directories and a
    stable evidence snapshot ID as `baseline_ref`; never modify shared inputs.
-3. Reserve the round **before the first spawn attempt**:
+3. Confirm the frozen experiment contract, ready preflight artifact, latest
+   observation revision, host failure policy, and configured model settings.
+   `continue_independent` is valid only when host preflight supports it and
+   the experiment-contract extension binds that attestation to the cited
+   preflight artifact digest. If no verifiable policy applies, stop pending
+   slots and checkpoint the reason.
+4. Reserve the round **before the first spawn attempt**:
 
    ```bash
    uv run python "$AUTORESEARCH_SKILL_DIR/scripts/control.py" begin-round \
@@ -88,11 +112,15 @@ writing Research State. Only the lead performs the following orchestration.
    launches at most once. Do not add unconfigured agents, recursively delegate,
    or retry a failed slot within that round. Queue pending slots in waves when
    host capacity is smaller than the configured list; this remains one round.
-4. Before each native spawn, checkpoint its task/worktree and `reserved`
+5. Before each native spawn, checkpoint its task/worktree and `reserved`
    dispatch state. After spawn, checkpoint `started` and the native task ID.
-   Collect structured results into `finished` slots. One failure does not
-   cancel the other tasks. Preserve failures as evidence for later rounds.
-5. Review results against the goal and refresh human steering before integrating.
+   Collect structured results into `finished` slots. After each failure, apply
+   the frozen policy before dispatching any pending slot: `stop_pending` stops
+   new dispatches; `continue_independent` may proceed only when preflight
+   verified host support and the remaining task is independent. Neither policy
+   promises cancellation of tasks already running. Preserve failures as
+   evidence for later rounds.
+6. Review results against the goal and refresh human steering before integrating.
    For code changes, cherry-pick selected
    candidate commits into a separate integration worktree based on this round's
    baseline, then run project validation there. Exclude unresolved conflicts
@@ -101,12 +129,12 @@ writing Research State. Only the lead performs the following orchestration.
    merge. If user edits appeared, preserve candidates, mark the loop blocked,
    and stop integration. Do not push or discard user changes. Record the merged
    commit; it becomes the next round's baseline.
-6. Refresh Research State. Author **one aggregate ResearchUpdate as the lead**,
+7. Refresh Research State. Author **one aggregate ResearchUpdate as the lead**,
    with real evidence, proposed Findings, Lineage, and Agenda outcomes. Persist
    its exact file and stable `client_update_id`, dry-run, then commit. Record
    the returned commit ID and revision. A failed round still gets an honest
    failure annotation / Agenda outcome, not invented run evidence.
-7. Evaluate every original success criterion using inspected evidence and
+8. Evaluate every original success criterion using inspected evidence and
    rationale. A successful task or improved metric alone is not goal completion.
    Persist the fresh assessment and mark the round complete only after all
    outcomes, integration, and the aggregate ResearchUpdate are reconciled.
@@ -134,6 +162,17 @@ update receipts. Never initialize a replacement loop to reset its budget.
   worktrees. Keep commits reachable with local `codex/autoresearch-...` branches
   or Git bundles, and save artifact files outside disposable checkouts.
   Do not remove worktrees with unknown live experiments.
+
+After terminal, blocked, interrupted, or failed handoff, run
+`aimx research overview --repo "$AIM_REPO" --loop "$LOOP_ID" --json`. Include
+its actual repo/state/checkpoint paths, original criteria and assessment,
+persisted update receipt, artifact navigation, useful Findings, failures, and
+pending reconciliation. A result file alone does not prove Research State was
+committed. For uncertain writes, query `aimx research receipt` with the stable
+key and request fingerprint; `not_found` describes only that read snapshot.
+Exact replay uses the saved update file and key. Fingerprint conflict stops for
+refresh and review. Terminal follow-up evidence belongs to a new activity; it
+does not resume or extend a completed loop. See the handoff reference.
 
 Finish with goal status, started/max rounds, criterion evidence or remaining
 gaps, merged changes, useful Findings, failures, and the checkpoint location.

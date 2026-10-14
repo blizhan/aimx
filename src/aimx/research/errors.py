@@ -49,13 +49,25 @@ class StoreError(ResearchError):
 
 
 class BudgetError(ResearchError):
-    def __init__(self, required: int, limit: int) -> None:
+    def __init__(
+        self,
+        required: int,
+        limit: int,
+        *,
+        query_commands: list[str] | None = None,
+        group_ids: list[str] | None = None,
+    ) -> None:
+        details: dict[str, Any] = {"required_bytes": required, "budget_limit": limit}
+        if group_ids:
+            details["required_group_ids"] = list(group_ids)
+        if query_commands:
+            details["query_commands"] = list(query_commands)
         super().__init__(
             code="budget_too_small_for_required_context",
             message=(
                 f"Context budget {limit} bytes is too small for required "
                 f"context closure ({required} bytes minimum)."
             ),
-            details={"required_bytes": required, "budget_limit": limit},
+            details=details,
             exit_status=2,
         )

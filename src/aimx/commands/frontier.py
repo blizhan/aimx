@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from aimx.commands.finding import _options
+from aimx.commands.help import render_command_help
 from aimx.commands.research import (
     ResearchCommandResult,
     build_update,
@@ -27,6 +28,10 @@ def run_frontier_command(args: list[str]) -> ResearchCommandResult:
         return ResearchCommandResult(2, error_message="Usage: aimx frontier <show|lane-add|add|move|pause|retire> ...")
     try:
         command = args[0]
+        if any(token in {"-h", "--help"} for token in args):
+            rendered = render_command_help("frontier" + (" " + command if command in {"show", "lane-add", "add", "move", "pause", "retire"} else ""), output_json="--json" in args)
+            if rendered is not None:
+                return ResearchCommandResult(0, output=rendered)
         rest, repo_value, output_json = parse_repo_json(args[1:])
         root, state = read_repo_state(str(repo_value))
         if command == "show":

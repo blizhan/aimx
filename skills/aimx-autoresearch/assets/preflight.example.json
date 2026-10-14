@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "repo": "/absolute/path/to/aim-repo",
+  "project_root": "/absolute/path/to/project",
+  "checked_entrypoint": "/absolute/path/to/aimx",
+  "package_version": "observed-version-string",
+  "config_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "failure_policy": "stop_pending",
+  "checks": {
+    "aimx_entrypoint": {"status": "available", "verification_source": "aimx --help and command probes", "reason": "All required commands responded."},
+    "research_read": {"status": "available", "verification_source": "research state and overview --json", "reason": "Bound repository was readable."},
+    "required_commands": {"status": "available", "verification_source": "update --dry-run, receipt, evidence check", "reason": "No write was performed by dry-run."},
+    "aim_read": {"status": "unverified", "verification_source": "not required", "reason": "The experiment uses local file evidence only."},
+    "models": {"status": "available", "verification_source": "native host capability report", "reason": "Every configured round model and effort was checked."},
+    "evaluator": {"status": "available", "verification_source": "project preflight argv and output digest", "reason": "Preflight completed without training."},
+    "failure_policy": {"status": "available", "verification_source": "host policy probe", "reason": "stop_pending is supported."},
+    "resource_reporting": {"status": "unverified", "verification_source": "executor logs", "reason": "Resource counts are reported but not enforced."}
+  },
+  "ready": true,
+  "limitations": ["Compute budget enforcement is unavailable."]
+}

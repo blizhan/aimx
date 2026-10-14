@@ -176,16 +176,19 @@ aimx research update --repo data --file update.json --dry-run --json
 aimx research update --repo data --file update.json --json
 ```
 
-The `items` budget is measured in exact UTF-8 JSON bytes, not model tokens or
-experiment rounds. Research reads do not create `.aimx`; explicit updates write
-only `data/.aimx/research/state.sqlite3`. Revision conflicts return exit status
+The context budget covers the complete UTF-8 JSON response, including metadata,
+evidence references, selection notes, and the terminating LF. This is stricter
+than the earlier items-only budget, so the same limit can include fewer items
+or report that a complete correction group will not fit. Research reads do not
+create `.aimx`; explicit updates write only `data/.aimx/research/state.sqlite3`.
+Revision conflicts return exit status
 `3`, requiring the caller to refresh context and reconsider its update rather
 than silently replay a stale decision.
 
 See the
 [AutoResearch protocol reference](skills/aimx/references/autoresearch-protocol.md)
-and the [feature quickstart](specs/007-research-state/quickstart.md) for the
-complete handoff and update contract.
+and the [008 research handoff quickstart](specs/008-autoresearch-knowledge-loop/quickstart.md)
+for file evidence, receipts, and correction-aware context contracts.
 
 ### Bounded multi-agent research
 
@@ -243,7 +246,11 @@ config. Budget and recorded task identities remain unchanged; unknown live
 task state blocks further dispatch until reconciled. Checkpoints are stored in
 `<aim-repo>/.aimx/autoresearch/<loop-id>/`, independently of Research State.
 The helper neither enforces agent roles nor starts agents/training: role rules
-and native model support are the host/lead's responsibility. This V1 provides
+and native model support are the host/lead's responsibility. The lead verifies
+the actual Aimx commands, evaluator preflight, round model settings, dataset
+observation snapshot, and host failure policy before dispatch. Research receipts
+separate saved artifacts from committed knowledge; terminal follow-up uses a
+separate activity and leaves the finished loop unchanged. This V1 provides
 explicit resume, not background scheduling, process recovery, or cost/GPU budgets.
 
 ### Roadmap

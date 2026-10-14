@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import hashlib
+import os
+import stat
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from aimx.research.errors import ValidationError
 
@@ -48,8 +52,58 @@ def canonicalize_run_hash(raw_hash: str, repo_path: Path) -> str:
     return matches[0]
 
 
-def make_evidence_resolver(repo_path: Path):
-    return lambda raw_hash: canonicalize_run_hash(raw_hash, repo_path)
+@dataclass(frozen=True)
+class EvidenceResolver:
+    repo_path: Path
+
+    def __call__(self, raw_hash: str) -> str:
+        return canonicalize_run_hash(raw_hash, self.repo_path)
+
+    def resolve_artifact(self, location: str) -> tuple[Path, str, int]:
+        original = Path(location).expanduser()
+        is_relative = not original.is_absolute()
+        candidate = Path(os.path.abspath(original if not is_relative else self.repo_path / original))
+        if is_relative and not candidate.is_relative_to(self.repo_path):
+            raise ValidationError("Relative artifact paths must stay inside the repository", code="artifact_unsupported")
+        try:
+            parts = list(reversed(candidate.parents)) + [candidate]
+            for component in parts:
+                if stat.S_ISLNK(component.lstat().st_mode):
+                    raise ValidationError("Symlink artifacts cannot be identity-verified safely", code="artifact_changed_during_read")
+            before = candidate.stat()
+        except ValidationError:
+            raise
+        except OSError as exc:
+            raise ValidationError(f"Unable to read local artifact at {candidate}: {exc}", code="artifact_unreadable") from exc
+        resolved = candidate.resolve(strict=True)
+        if not stat.S_ISREG(before.st_mode):
+            raise ValidationError("Local artifact must be a regular file", code="artifact_unsupported")
+        digest = hashlib.sha256()
+        size = 0
+        try:
+            stream_context = candidate.open("rb")
+        except OSError as exc:
+            raise ValidationError(f"Unable to read local artifact at {candidate}: {exc}", code="artifact_unreadable") from exc
+        with stream_context as stream:
+            opened = os.fstat(stream.fileno())
+            if (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns) != (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns):
+                raise ValidationError("Local artifact changed before reading", code="artifact_changed_during_read")
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+                size += len(chunk)
+            after_open = os.fstat(stream.fileno())
+        try:
+            after = candidate.stat()
+        except OSError as exc:
+            raise ValidationError(f"Local artifact disappeared while reading: {candidate}", code="artifact_changed_during_read") from exc
+        identity_before = (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+        if identity_before != (after_open.st_dev, after_open.st_ino, after_open.st_size, after_open.st_mtime_ns) or identity_before != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) or size != before.st_size:
+            raise ValidationError("Local artifact changed while reading", code="artifact_changed_during_read")
+        return resolved, digest.hexdigest(), size
+
+
+def make_evidence_resolver(repo_path: Path) -> EvidenceResolver:
+    return EvidenceResolver(repo_path.resolve())
 
 
 def mark_evidence_availability(state: "ResearchState", repo_path: Path) -> "ResearchState":

@@ -61,6 +61,8 @@ def test_replay_and_context_handle_research_scale() -> None:
     }
     state = ResearchState(revision=10_000, findings=findings)
     context = compile_context(state, "accuracy results", 5_000_000)
-    assert context["budget_used"] == json_bytes(context["items"])
+    import json
+    response_size = len((json.dumps(context, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8"))
+    assert context["budget_used"] == response_size
     assert context["budget_used"] <= context["budget_limit"]
     assert len([item for item in context["items"] if item["kind"] == "finding"]) == 10_000
