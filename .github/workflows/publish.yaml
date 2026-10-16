@@ -21,6 +21,23 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Check release version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PYTHON'
+          import os
+          import runpy
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          runtime_version = runpy.run_path("src/aimx/__init__.py")["__version__"]
+          tag = os.environ["RELEASE_TAG"]
+          if tag != f"v{version}" or runtime_version != version:
+              raise SystemExit(f"Release version mismatch: tag={tag}, package={version}, runtime={runtime_version}")
+          PYTHON
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
 
