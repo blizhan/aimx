@@ -61,6 +61,21 @@ def test_explicit_write_initializes_store_and_revisions_are_contiguous(
     assert len(read_events(research_repo)) == 2
 
 
+def test_old_idempotent_request_fingerprint_is_not_rewritten_by_extensions(
+    research_repo: Path, research_update_factory
+) -> None:
+    import hashlib
+    import json
+
+    payload = research_update_factory(client_update_id="legacy-exact")
+    fingerprint = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    apply_update(research_repo, _update(payload))
+    with sqlite3.connect(database_path(research_repo)) as connection:
+        stored = connection.execute("SELECT request_fingerprint FROM commits WHERE client_update_id = ?", ("legacy-exact",)).fetchone()[0]
+    assert stored == fingerprint
+    assert apply_update(research_repo, _update(payload)).idempotent
+
+
 def test_revision_conflict_does_not_add_a_commit(
     research_repo: Path, research_update_factory
 ) -> None:
@@ -169,6 +184,94 @@ def test_dot_aim_path_resolves_to_repository_root(
 
     assert result.revision == 1
     assert database_path(research_repo).is_file()
+
+
+def test_read_receipt_is_read_only_and_reports_not_found_conflict_and_result(research_repo: Path, research_update_factory) -> None:
+    from aimx.research.store import read_receipt, _request_fingerprint
+
+    missing = read_receipt(research_repo, "missing")
+    assert missing["status"] == "not_found"
+    assert not database_path(research_repo).exists()
+
+    update = _update(research_update_factory(client_update_id="receipt-key"))
+    result = apply_update(research_repo, update)
+    found = read_receipt(research_repo, "receipt-key", _request_fingerprint(update))
+    assert found["status"] == "committed"
+    assert found["commit_id"] == result.commit_id
+    assert found["revision"] == result.revision
+    assert found["request_fingerprint"] == _request_fingerprint(update)
+    with pytest.raises(ValidationError) as conflict:
+        read_receipt(research_repo, "receipt-key", "0" * 64)
+    assert conflict.value.code == "idempotency_conflict"
+
+
+def test_exact_file_update_replay_survives_artifact_removal(
+    research_repo: Path, tmp_path: Path,
+) -> None:
+    import hashlib
+    from aimx.aim_bridge.research_evidence import make_evidence_resolver
+
+    artifact = research_repo / "report.json"
+    artifact.write_text('{"result": "durable"}\\n', encoding="utf-8")
+    content = artifact.read_bytes()
+    update = ResearchUpdate.from_dict({
+        "schema_version": 1, "base_revision": 0, "client_update_id": "file-replay",
+        "author": {"kind": "human", "name": "lead"},
+        "operations": [
+            {"op": "activity.create", "local_id": "activity", "kind": "analysis", "title": "Analysis", "objective": "Preserve result", "source": {"kind": "fixture", "location": str(artifact)}},
+            {"op": "finding.create", "local_id": "finding", "claim": "Recorded file result", "source_activity_id": "$activity", "topics": ["result"], "result_kind": "insufficient_evidence", "scope": {"description": "fixture", "dataset_scope_ids": [], "conditions": ["same evaluator"]}, "limitations": ["single run"], "evidence": [{"kind": "local_artifact", "location": str(artifact), "sha256": hashlib.sha256(content).hexdigest(), "size_bytes": len(content), "evidence_type": "report", "purpose": "replay test", "source_activity_id": "$activity"}]},
+        ],
+    })
+    first = apply_update(research_repo, update, make_evidence_resolver(research_repo))
+    artifact.unlink()
+    replayed = apply_update(research_repo, update, make_evidence_resolver(research_repo))
+    assert replayed.idempotent is True
+    assert replayed.commit_id == first.commit_id
+    assert replayed.revision == first.revision == 1
+    assert len(read_state(research_repo).findings) == 1
+
+
+def test_read_receipt_marks_legacy_commit_unverifiable_without_altering_schema(research_repo: Path) -> None:
+    from aimx.research.store import read_receipt
+
+    path = database_path(research_repo)
+    path.parent.mkdir(parents=True)
+    with sqlite3.connect(path) as connection:
+        connection.executescript("CREATE TABLE commits (id TEXT PRIMARY KEY, revision INTEGER, client_update_id TEXT); INSERT INTO commits VALUES ('c1', 1, 'old-key');")
+    before = path.read_bytes()
+    assert read_receipt(research_repo, "old-key")["status"] == "receipt_unverifiable"
+    assert path.read_bytes() == before
+
+
+def test_duplicate_attempt_key_in_update_rolls_back_entire_store_write(
+    research_repo: Path,
+) -> None:
+    update = ResearchUpdate.from_dict({
+        "schema_version": 1, "base_revision": 0, "author": {"kind": "agent", "name": "lead"},
+        "operations": [
+            {"op": "activity.create", "local_id": "activity", "kind": "analysis", "title": "Run", "objective": "Score", "source": {"kind": "test", "location": "fixture"}},
+            {"op": "agenda.item.create", "local_id": "agenda", "objective": "score", "frontier_item_ids": [], "motivating_finding_ids": ["$finding"]},
+            {"op": "finding.create", "local_id": "finding", "claim": "baseline"},
+        ],
+    })
+    # Agenda references must be declared first; create a direction lane and use it as motivation.
+    update = ResearchUpdate.from_dict({
+        "schema_version": 1, "base_revision": 0, "author": {"kind": "agent", "name": "lead"},
+        "operations": [
+            {"op": "activity.create", "local_id": "activity", "kind": "analysis", "title": "Run", "objective": "Score", "source": {"kind": "test", "location": "fixture"}},
+            {"op": "frontier.lane.create", "local_id": "lane", "name": "research"},
+            {"op": "frontier.item.create", "local_id": "direction", "lane_id": "$lane", "direction": "Score", "rationale": "Test"},
+            {"op": "agenda.item.create", "local_id": "agenda", "objective": "score", "frontier_item_ids": ["$direction"]},
+            {"op": "execution.outcome.record", "local_id": "one", "source_activity_id": "$activity", "agenda_item_id": "$agenda", "attempt_key": "duplicate", "execution_status": "failed", "artifact_status": "partial", "evaluation_status": "unknown", "audit_status": "not_run", "summary": "first", "evidence": [], "resources": []},
+            {"op": "execution.outcome.record", "local_id": "two", "source_activity_id": "$activity", "agenda_item_id": "$agenda", "attempt_key": "duplicate", "execution_status": "succeeded", "artifact_status": "complete", "evaluation_status": "unknown", "audit_status": "not_run", "summary": "duplicate", "evidence": [], "resources": []},
+        ],
+    })
+    from aimx.research.store import database_path
+    with pytest.raises(ValidationError) as error:
+        apply_update(research_repo, update)
+    assert error.value.code == "attempt_conflict"
+    assert read_state(research_repo).revision == 0
+    assert not database_path(research_repo).exists()
 
 
 def test_corrupt_event_payload_is_reported_as_unreadable_store(

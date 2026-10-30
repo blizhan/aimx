@@ -196,6 +196,12 @@ bounded context, human steering, and experiment contracts.
      --budget 12000 --json
    ```
 
+   The budget covers the entire UTF-8 JSON response, including metadata,
+   evidence references, notes, and LF; a fixed budget may return fewer items
+   than the earlier items-only behavior. If a required correction group does
+   not fit, use the complete query commands from the error and do not pass a
+   one-sided partial conclusion.
+
 2. Inspect persisted work before proposing new work:
 
    ```bash
@@ -223,8 +229,18 @@ bounded context, human steering, and experiment contracts.
    `revision_conflict` require a fresh context and a reconsidered update.
 
 6. Repeat the context, agenda, external execution, Aim observation, and
-   ResearchUpdate steps for the next round. A different agent product can use
-   the same JSON contracts and local `.aimx/research` state.
+   ResearchUpdate steps for the next round. Before dispatch, verify the actual
+   Aimx entrypoint and required help/read/dry-run/evidence commands, every
+   round's model settings, the project's evaluator preflight, dataset
+   observation snapshot, and a host-supported failure policy. Incomplete
+   required checks block dispatch; a version number is not proof of capability.
+7. Use `aimx research overview --repo <repo> --loop <id> --json` at terminal,
+   blocked, interrupted, or failed handoff. Keep result artifacts distinct from
+   persisted ResearchUpdate receipts. An uncertain write is resolved by its
+   stable key and fingerprint or the exact saved update; `not_found` is only a
+   query snapshot. Terminal follow-up evidence is a new activity and cannot
+   extend the old loop checkpoint. A different agent product can use the same
+   JSON contracts and local `.aimx/research` state.
 
 For the complete contract, including handoff examples and empty-state behavior,
 read [references/autoresearch-protocol.md](references/autoresearch-protocol.md).

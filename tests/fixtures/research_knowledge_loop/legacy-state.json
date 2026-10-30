@@ -1,0 +1,9 @@
+{
+  "revision": 16,
+  "findings": [],
+  "annotations": [
+    {"id": "ann_legacy_early", "target_kind": "research_state", "target_id": null, "text": "The candidate improved the local metric."},
+    {"id": "ann_legacy_review", "target_kind": "research_state", "target_id": null, "text": "The gain does not persist in the extended window."}
+  ],
+  "expected_projection": {"unattributed_annotations": 2, "automatically_created_findings": 0}
+}

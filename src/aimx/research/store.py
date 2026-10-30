@@ -124,6 +124,49 @@ def read_commits(repo_root: Path) -> list[dict[str, Any]]:
         raise StoreError(f"Unable to read research commits at {path}: {exc}") from exc
 
 
+def read_receipt(
+    repo_root: Path,
+    client_update_id: str,
+    fingerprint: str | None = None,
+) -> dict[str, Any]:
+    """Read one persisted commit receipt without initializing or migrating state."""
+    path = database_path(repo_root)
+    if not path.is_file():
+        return {"schema_version": 1, "status": "not_found", "client_update_id": client_update_id}
+    try:
+        with _connect_read_only(path) as connection:
+            columns = {str(row["name"]) for row in connection.execute("PRAGMA table_info(commits)")}
+            if "client_update_id" not in columns:
+                return {"schema_version": 1, "status": "not_found", "client_update_id": client_update_id}
+            fingerprint_expr = "request_fingerprint" if "request_fingerprint" in columns else "NULL AS request_fingerprint"
+            result_expr = "result_json" if "result_json" in columns else "NULL AS result_json"
+            row = connection.execute(
+                f"SELECT id, revision, client_update_id, {fingerprint_expr}, {result_expr} FROM commits WHERE client_update_id = ?",
+                (client_update_id,),
+            ).fetchone()
+            if row is None:
+                return {"schema_version": 1, "status": "not_found", "client_update_id": client_update_id}
+            stored = row["request_fingerprint"]
+            if fingerprint is not None and stored is not None and stored != fingerprint:
+                raise ValidationError("Receipt fingerprint does not match the committed request", code="idempotency_conflict", client_update_id=client_update_id)
+            raw_result = row["result_json"]
+            if stored is None or not isinstance(raw_result, str):
+                return {"schema_version": 1, "status": "receipt_unverifiable", "client_update_id": client_update_id}
+            try:
+                result = json.loads(raw_result)
+            except json.JSONDecodeError:
+                return {"schema_version": 1, "status": "receipt_unverifiable", "client_update_id": client_update_id}
+            if not isinstance(result, dict) or result.get("commit_id") != row["id"] or result.get("revision") != row["revision"]:
+                return {"schema_version": 1, "status": "receipt_unverifiable", "client_update_id": client_update_id}
+            return {
+                **result,
+                "client_update_id": client_update_id,
+                "request_fingerprint": stored,
+            }
+    except (sqlite3.Error, TypeError, ValueError) as exc:
+        raise StoreError(f"Unable to inspect research receipt at {path}: {exc}") from exc
+
+
 def read_events(repo_root: Path) -> list[dict[str, Any]]:
     path = database_path(repo_root)
     if not path.exists():
@@ -179,6 +222,7 @@ def dry_run_update(
             revision=state.revision + 1,
             commit_id="commit_dry_run",
             evidence_resolver=evidence_resolver,
+            repo_root=normalize_repo_root(repo_root),
         )
         return state, compiled.created_ids
     except sqlite3.Error as exc:
@@ -219,6 +263,7 @@ def apply_update(
         revision=snapshot.revision + 1,
         commit_id="commit_validation",
         evidence_resolver=evidence_resolver,
+        repo_root=root,
     )
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -245,6 +290,7 @@ def apply_update(
                 revision=next_revision,
                 commit_id=commit_id,
                 evidence_resolver=evidence_resolver,
+                repo_root=root,
             )
             created_at = _utc_now()
             committed_result = CommitResult(

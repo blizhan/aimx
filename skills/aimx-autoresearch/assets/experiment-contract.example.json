@@ -1,0 +1,46 @@
+{
+  "contract_version": 1,
+  "question": "Does the frozen candidate improve the declared outcome?",
+  "interventions": ["candidate rule"],
+  "fixed_controls": ["same input snapshot", "same evaluator", "same baseline"],
+  "expected_evidence": ["paired evaluation report"],
+  "disconfirmation": ["acceptance threshold is not met"],
+  "confounders": [],
+  "evaluation": {
+    "protocol_id": "project-evaluator-v1",
+    "protocol_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "argv": ["uv", "run", "python", "tools/evaluator.py", "score", "--json"],
+    "metric": "project_metric",
+    "acceptance_rule": "project-defined threshold and interval",
+    "preflight_evidence": [{
+      "kind": "local_artifact",
+      "location": "artifacts/preflight.json",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "size_bytes": 2048,
+      "evidence_type": "preflight_report",
+      "purpose": "Verified evaluator and host capability preflight",
+      "source_activity_id": "act_example"
+    }]
+  },
+  "data": {
+    "scope_ids": ["replace-with-ds-id"],
+    "phase": "exploratory",
+    "candidate_fingerprint": "replace-with-candidate-digest",
+    "observation_revision": 0
+  },
+  "resources": [
+    {
+      "kind": "evaluator_calls",
+      "unit": "calls",
+      "planned": 1,
+      "verification": "unverified",
+      "enforcement": "declared_only"
+    }
+  ],
+  "failure_policy": "stop_pending",
+  "extensions": {
+    "project_specific": "optional namespaced data",
+    "host_failure_policy_verified": true,
+    "host_failure_policy_preflight_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  }
+}

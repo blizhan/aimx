@@ -39,9 +39,12 @@ aimx research next --repo <repo> --json
 ```
 
 `research context` is deterministic for an unchanged state, objective, and
-budget. Its `items` budget is exact UTF-8 serialized JSON bytes. Its
-`evidence_refs` list contains canonical full Aim run hashes for deeper
-inspection.
+budget. The budget counts the complete UTF-8 JSON response, including metadata,
+evidence references, selection notes, and the terminating LF; a fixed budget
+may contain fewer knowledge items than the earlier items-only behavior. Its
+`evidence_refs` list contains canonical structured evidence references for
+deeper inspection. If a required correction closure will not fit, the command
+returns a complete budget diagnostic and no one-sided partial context.
 
 `research next` selects an already persisted Agenda Item. It selects the
 highest-priority active item first, then the highest-priority proposed item;
@@ -111,6 +114,14 @@ remain visible to a later agent. A handoff from Codex to another agent product
 requires no product-specific database: the next agent reads the same state,
 context, and agenda JSON and submits the same update schema with its own
 `author.name`.
+
+Use `aimx research overview --repo <repo> --loop <id> --json` for terminal,
+blocked, interrupted, or failed handoffs. A result artifact is not proof of a
+committed ResearchUpdate; preserve its stable key and request fingerprint and
+query `aimx research receipt` or replay the exact saved update after an
+uncertain write. A receipt `not_found` is only a snapshot result. Terminal
+follow-up evidence belongs to a new activity and must not reopen or extend the
+old checkpoint.
 
 ## Empty and interrupted rounds
 

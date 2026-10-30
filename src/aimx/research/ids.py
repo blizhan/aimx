@@ -12,6 +12,10 @@ PREFIXES = {
     "lane": "lane_",
     "frontier": "front_",
     "agenda": "agenda_",
+    "activity": "act_",
+    "dataset_scope": "ds_",
+    "observation": "obs_",
+    "attempt": "attempt_",
 }
 
 _LOCAL_REF_RE = re.compile(r"^\$[A-Za-z][A-Za-z0-9_-]*$")

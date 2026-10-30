@@ -1,0 +1,10 @@
+{
+  "scenarios": [
+    {"name": "success", "loop_id": "loop-success", "loop_status": "goal_met", "goal_status": "met", "annotations": 2},
+    {"name": "unmet_goal", "loop_id": "loop-unmet", "loop_status": "budget_exhausted", "goal_status": "not_met", "annotations": 20},
+    {"name": "blocked", "loop_id": "loop-blocked", "loop_status": "blocked", "goal_status": "unknown", "annotations": 4},
+    {"name": "annotation_only", "loop_id": "loop-annotations", "loop_status": "budget_exhausted", "goal_status": "not_met", "annotations": 20},
+    {"name": "multiple_loops", "loop_id": "loop-two", "loop_status": "interrupted", "goal_status": "unknown", "annotations": 3}
+  ],
+  "constraints": ["paths are generated in pytest tmp_path", "checkpoint bytes are captured by each test", "multiple loops must never cross-contaminate"]
+}

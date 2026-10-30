@@ -31,6 +31,46 @@ def apply_event(
         state.findings[entity_id] = p
         return
 
+    if event_type == "evidence.review":
+        finding_id = p.get("finding_id")
+        _entity(state.findings, finding_id, "finding")
+        state.evidence_reviews.setdefault(str(finding_id), []).append(p)
+        return
+
+    if event_type == "activity.create":
+        entity_id = _required_id(p)
+        if entity_id in state.activities:
+            raise ValidationError(f"Activity already exists: {entity_id}", code="duplicate_entity")
+        state.activities[entity_id] = p
+        return
+
+    if event_type == "activity.artifact.add":
+        activity = _entity(state.activities, p.get("activity_id"), "activity")
+        activity.setdefault("artifact_locations", []).extend(copy.deepcopy(p.get("locations", [])))
+        activity.setdefault("artifact_history", []).append(p)
+        return
+
+    if event_type == "dataset.scope.create":
+        entity_id = _required_id(p)
+        if entity_id in state.dataset_scopes:
+            raise ValidationError(f"Dataset scope already exists: {entity_id}", code="duplicate_entity")
+        state.dataset_scopes[entity_id] = p
+        return
+
+    if event_type == "dataset.observation.record":
+        entity_id = _required_id(p)
+        if entity_id in state.observations:
+            raise ValidationError(f"Observation already exists: {entity_id}", code="duplicate_entity")
+        state.observations[entity_id] = p
+        return
+
+    if event_type == "execution.outcome.record":
+        entity_id = _required_id(p)
+        if entity_id in state.outcomes:
+            raise ValidationError(f"Attempt already exists: {entity_id}", code="duplicate_entity")
+        state.outcomes[entity_id] = p
+        return
+
     if event_type == "finding.assess":
         finding = _entity(state.findings, p.get("finding_id"), "finding")
         _set_if_present(finding, p, "epistemic_status")

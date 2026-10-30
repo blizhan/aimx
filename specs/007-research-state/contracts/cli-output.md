@@ -88,7 +88,7 @@ validating the in-memory update are discarded.
 aimx research context --objective <text> --budget <bytes> [--repo <path>] [--json]
 ```
 
-`--budget` is the maximum UTF-8 byte size of the serialized `items` payload.
+`--budget` is the maximum UTF-8 byte size of the complete compact JSON response, including metadata, `items`, evidence references, selection notes, `budget_used`, and the terminating LF. This is stricter than the earlier items-only budget, so a fixed limit may contain fewer knowledge items. Human output reports this same selection budget as `response_json`; use `--json` for the measured machine-readable response.
 
 JSON success envelope:
 
@@ -101,6 +101,7 @@ JSON success envelope:
   "budget_unit": "utf8_bytes",
   "budget_limit": 12000,
   "budget_used": 6842,
+  "budget_scope": "response",
   "items": [],
   "evidence_refs": [],
   "selection_notes": {}

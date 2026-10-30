@@ -26,6 +26,12 @@ SUPPORTED_OPERATIONS = frozenset(
         "agenda.item.transition",
         "agenda.item.attach_evidence",
         "agenda.item.set_priority",
+        "activity.create",
+        "activity.artifact.add",
+        "evidence.review",
+        "dataset.scope.create",
+        "dataset.observation.record",
+        "execution.outcome.record",
     }
 )
 

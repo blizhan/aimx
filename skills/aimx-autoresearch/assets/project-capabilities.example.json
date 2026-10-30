@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "project_root": "/absolute/path/to/project",
+  "aim_repo": "/absolute/path/to/aim-repo",
+  "evaluator_protocol": "project-evaluator-v1",
+  "preflight_argv": ["uv", "run", "python", "tools/evaluator.py", "preflight", "--json"],
+  "evaluation_argv": ["uv", "run", "python", "tools/evaluator.py", "score", "--json"],
+  "requires_aim_run_evidence": false,
+  "supports_attempt_log": true,
+  "supports_resource_counts": false,
+  "enforces_compute_budget": false,
+  "failure_policy": "stop_pending"
+}

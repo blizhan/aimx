@@ -16,6 +16,11 @@ aimx research next --repo "$AIM_REPO" --json
 ```
 
 Use the configured `context_budget_bytes`, not round budget, for `--budget`.
+It counts the complete UTF-8 JSON response, including metadata, evidence
+references, selection notes, and the terminating LF. A fixed limit may contain
+fewer knowledge items than the older items-only behavior. If the required
+correction closure cannot fit, context returns a budget error with complete
+query commands and no one-sided partial result.
 Refresh at round boundaries and before aggregate writes. Scope selection to
 the current goal; a globally selected Agenda item may belong to other work.
 Do not reactivate human-paused directions or override rejected Findings.
@@ -174,3 +179,18 @@ Remaining budget: 2 rounds, 60 GPU hours.
    - If retro recommends `stop` because the goal is met or budget is exhausted, the Lead checkpoints the loop as `goal_met` or `budget_exhausted` rather than starting a new round.
 3. **Translating Advice into Action**:
    - When adopting an option recommended by retro, the Lead designs the next round's tasks, sets control variables, and submits normal frontier/agenda updates in accordance with the standard autoresearch loop.
+
+## Terminal follow-up
+
+After a loop ends, create a separate `follow_up` Activity that references the
+registered loop. Add a new scoped Finding with real file evidence and link it
+to the earlier Finding with `supports`, `challenges`, or `refines`. Save the
+exact update and stable key, dry-run, commit, and inspect its receipt. Do not
+call `begin-round`, change the old checkpoint, alter its original criteria, or
+claim that later historical coverage is future independent confirmation.
+
+A `research receipt` result of `not_found` only means the read snapshot did not
+see the key; another writer may still be committing. Reconcile uncertain
+writes by querying the same key/fingerprint or replaying the exact saved update.
+A fingerprint conflict stops for refresh and review with a new key; never
+replace content under an existing key or replay a reserved host slot.
