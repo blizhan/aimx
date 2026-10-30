@@ -230,7 +230,7 @@ def load_state(directory: Path, config_path: Path | None = None) -> dict[str, An
             require((agent["dispatch_status"] == "finished") == (agent["result"] is not None),
                     "Invalid finished agent checkpoint")
             if agent["result"] is not None:
-                validate_result(agent["result"])
+                validate_result(agent["result"], state["loop_id"], number, legacy=True)
         require(item["status"] != "completed" or all(agent["dispatch_status"] == "finished" for agent in agents),
                 "Completed round has unfinished agents")
     settled = not rounds or rounds[-1]["status"] == "completed"
@@ -286,9 +286,14 @@ def begin_round(directory: Path, number: int, baseline_ref: str,
     return state
 
 
-def validate_result(result: Any) -> None:
-    object_fields(result, {"status", "summary", "evidence", "candidate_ref", "actual_settings"},
-                  {"status", "summary", "evidence"}, "agent result")
+def validate_result(result: Any, loop_id: str, round_number: int, *, legacy: bool = False) -> None:
+    """Validate an agent result for the checkpoint's loop and round.
+
+    ``legacy`` accepts results saved before ``aim_runs`` became required.
+    """
+    required = {"status", "summary", "evidence"} if legacy else {"status", "summary", "evidence", "aim_runs"}
+    object_fields(result, {"status", "summary", "evidence", "candidate_ref", "actual_settings", "aim_runs"},
+                  required, "agent result")
     require(isinstance(result["status"], str) and result["status"] in RESULT_STATUSES, "Invalid agent result status")
     nonempty_text(result["summary"], "result.summary")
     text_list(result["evidence"], "result.evidence")
@@ -298,9 +303,52 @@ def validate_result(result: Any) -> None:
         object_fields(result["actual_settings"], {"model", "reasoning_effort"}, set(), "actual_settings")
         for key, value in result["actual_settings"].items():
             nonempty_text(value, f"actual_settings.{key}")
+    if "aim_runs" in result:
+        aim_runs = result["aim_runs"]
+        require(isinstance(aim_runs, list), "result.aim_runs must be an array")
+        seen_hashes: set[str] = set()
+        for index, run in enumerate(aim_runs):
+            label = f"result.aim_runs[{index}]"
+            object_fields(run, {"hash", "experiment", "aimx", "tags"},
+                          {"hash", "experiment", "aimx", "tags"}, label)
+            run_hash = run["hash"]
+            nonempty_text(run_hash, f"{label}.hash")
+            require(run_hash not in seen_hashes, f"Duplicate Aim run hash in {label}: {run_hash}")
+            seen_hashes.add(run_hash)
+            params = run["aimx"]
+            object_fields(params, {"loop_id", "round", "branch", "task_id", "role", "hypothesis"},
+                          {"loop_id", "round", "role", "hypothesis"}, f"{label}.aimx")
+            require(params["loop_id"] == loop_id, f"{label}.aimx.loop_id must equal the checkpoint loop {loop_id}")
+            require(type(params["round"]) is int and params["round"] == round_number,
+                    f"{label}.aimx.round must equal the current round {round_number}")
+            dispatch_fields = {"branch", "task_id"} & set(params)
+            require(len(dispatch_fields) == 1,
+                    f"{label}.aimx must contain exactly one of branch or task_id")
+            dispatch_field = next(iter(dispatch_fields))
+            nonempty_text(params[dispatch_field], f"{label}.aimx.{dispatch_field}")
+            role = params["role"]
+            require(isinstance(role, str) and role in {"baseline", "candidate", "control"},
+                    f"{label}.aimx.role must be baseline, candidate, or control")
+            hypothesis = params["hypothesis"]
+            nonempty_text(hypothesis, f"{label}.aimx.hypothesis")
+            require("\n" not in hypothesis and "\r" not in hypothesis,
+                    f"{label}.aimx.hypothesis must be one line")
+            nonempty_text(run["experiment"], f"{label}.experiment")
+            require(run["experiment"] == f"ar-{loop_id}",
+                    f"{label}.experiment must equal ar-{loop_id}")
+            text_list(run["tags"], f"{label}.tags", nonempty=True)
+            required_tags = {f"loop:{loop_id}", f"round:{params['round']}"}
+            require(required_tags <= set(run["tags"]),
+                    f"{label}.tags must include {sorted(required_tags)}")
+        aim_evidence_hashes = {reference.removeprefix("aim_run:") for reference in result["evidence"]
+                               if reference.startswith("aim_run:")}
+        require(aim_evidence_hashes == seen_hashes,
+                "result.evidence aim_run: references must match result.aim_runs hashes exactly; "
+                f"missing from evidence: {sorted(seen_hashes - aim_evidence_hashes)}, "
+                f"missing from aim_runs: {sorted(aim_evidence_hashes - seen_hashes)}")
 
 
-def patch_agent(agent: dict[str, Any], patch: Any) -> None:
+def patch_agent(agent: dict[str, Any], patch: Any, loop_id: str, round_number: int) -> None:
     object_fields(patch, {"id", "dispatch_status", "task_id", "task_file", "worktree", "result"},
                   {"id"}, "agent checkpoint")
     updated = {**agent, **copy.deepcopy(patch)}
@@ -318,7 +366,7 @@ def patch_agent(agent: dict[str, Any], patch: Any) -> None:
     if updated["dispatch_status"] == "started":
         require(updated["task_id"] is not None, "Started dispatch needs the native task_id")
     if "result" in patch:
-        validate_result(patch["result"])
+        validate_result(patch["result"], loop_id, round_number)
         require(agent["result"] is None or agent["result"] == patch["result"], "Cannot replace a recorded result")
     require((updated["dispatch_status"] == "finished") == (updated["result"] is not None),
             "Finished dispatch must have a result; other dispatches must not")
@@ -363,7 +411,7 @@ def checkpoint(directory: Path, patch: Any, config_path: Path | None = None) -> 
                 agent_id = agent_patch["id"]
                 require(agent_id in by_id and agent_id not in seen, "Unknown or duplicate checkpoint agent")
                 seen.add(agent_id)
-                patch_agent(by_id[agent_id], agent_patch)
+                patch_agent(by_id[agent_id], agent_patch, state["loop_id"], current["round"])
             for key in ("merged_ref", "update_file"):
                 if key in patch:
                     nonempty_text(patch[key], key)

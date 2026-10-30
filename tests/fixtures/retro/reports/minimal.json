@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "report_id": "retro_minimal_01",
+  "created_at": "2026-10-29T10:00:00Z",
+  "mode": "standalone",
+  "scope": {
+    "repo": "/path/to/repo",
+    "objective": "Optimize training loss",
+    "selection": "Round 1 evaluation",
+    "read_started_at": "2026-10-29T09:55:00Z",
+    "read_finished_at": "2026-10-29T10:00:00Z",
+    "revision_start": 1,
+    "revision_end": 1,
+    "loop_id": null,
+    "rounds": [1],
+    "constraints": ["budget: 100 GPU hours"],
+    "coverage": "Inspected run run_01 metrics and state"
+  },
+  "evidence": [
+    {
+      "id": "ev_01",
+      "kind": "aim_run",
+      "locator": "run_hash_abc123",
+      "selector": "loss",
+      "captured_at": "2026-10-29T09:56:00Z",
+      "source_time": "2026-10-29T09:00:00Z",
+      "source_revision": 1,
+      "availability": "read",
+      "provenance": "primary",
+      "summary": "Run completed with final loss 0.42"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec_01",
+      "position": "initial_dispatch",
+      "source_time": "2026-10-29T08:50:00Z",
+      "available_information": [
+        { "text": "Baseline loss was 0.50", "basis": "observed", "evidence_ids": ["ev_01"] }
+      ],
+      "agent_awareness": { "text": "Agent was aware of baseline", "basis": "observed", "evidence_ids": ["ev_01"] },
+      "alternatives": [
+        { "text": "Learning rate 1e-4 vs 1e-3", "basis": "observed", "evidence_ids": ["ev_01"] }
+      ],
+      "constraints": [
+        { "text": "Budget constraint 100h", "basis": "observed", "evidence_ids": ["ev_01"] }
+      ],
+      "choice": { "text": "Selected lr 1e-4", "basis": "observed", "evidence_ids": ["ev_01"] },
+      "recorded_rationale": { "text": "Standard warm start", "basis": "observed", "evidence_ids": ["ev_01"] },
+      "expectation": { "text": "Loss reduction below 0.45", "basis": "observed", "evidence_ids": ["ev_01"] },
+      "execution": { "text": "Run completed successfully", "basis": "observed", "evidence_ids": ["ev_01"] },
+      "comparability": { "text": "Metrics comparable to baseline", "basis": "observed", "evidence_ids": ["ev_01"] },
+      "observation": { "text": "Final loss was 0.42", "basis": "observed", "evidence_ids": ["ev_01"] },
+      "interpretation": { "text": "Improvement over baseline", "basis": "observed", "evidence_ids": ["ev_01"] },
+      "subsequent_action": { "text": "Lead initiated retro review", "basis": "observed", "evidence_ids": ["ev_01"] }
+    }
+  ],
+  "knowledge_updates": [
+    {
+      "change": "added",
+      "statement": { "text": "lr 1e-4 achieves 0.42 loss", "basis": "observed", "evidence_ids": ["ev_01"] },
+      "decision_ids": ["dec_01"]
+    }
+  ],
+  "reflections": [],
+  "next_step": {
+    "priority_question": "Should we proceed to evaluate learning rate schedule?",
+    "disposition": "recommend",
+    "rationale": { "text": "Initial target met; next optimization phase ready", "basis": "observed", "evidence_ids": ["ev_01"] },
+    "recommended_option_id": "opt_01",
+    "options": [
+      {
+        "id": "opt_01",
+        "kind": "experiment",
+        "question": "Does cosine schedule improve convergence?",
+        "action": "Train 1 run with cosine schedule from lr 1e-4",
+        "rationale": { "text": "Known to stabilize final loss", "basis": "observed", "evidence_ids": ["ev_01"] },
+        "controls": ["Fixed seed 42", "Batch size 64"],
+        "cost": "10 GPU hours",
+        "prerequisites": ["Baseline checkpoints available"],
+        "applicability": ["Loss plateau reached"],
+        "switch_conditions": ["Loss diverges at step 100"],
+        "outcome_branches": [
+          { "result": "loss < 0.40", "next_decision": "Adopt cosine schedule for production" },
+          { "result": "loss >= 0.40", "next_decision": "Keep constant lr 1e-4" }
+        ],
+        "independent_value": null
+      }
+    ],
+    "recheck_conditions": [
+      "Hardware environment changes",
+      "Dataset split updated"
+    ]
+  },
+  "limitations": [
+    "Only 1 run hash inspected; run variance across random seeds is unmeasured."
+  ]
+}

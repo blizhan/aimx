@@ -95,6 +95,18 @@ writing Research State. Only the lead performs the following orchestration.
    Persist task files and the baseline before dispatch.
    Read-only tasks without Git may use separate task/output directories and a
    stable evidence snapshot ID as `baseline_ref`; never modify shared inputs.
+
+   Fill every dispatch's Aim run convention in the handoff template with the
+   concrete loop ID, round, branch or task ID, role (`baseline`, `candidate`,
+   or `control`), and one-line hypothesis. Set `run.experiment = "ar-{loop_id}"`,
+   `run["aimx"]` (`loop_id`, integer `round`, branch/task ID, `role`, and
+   `hypothesis`), and the `loop:{loop_id}` / `round:{round}` tags when the
+   training script creates each run. All runs from that dispatch use its
+   assigned values. If a run already exists, only the sanctioned Aim SDK
+   backfill of `aimx.*` params and these tags is allowed; it cannot repair a
+   missing `run.experiment`. Subagents return every run hash and its exact
+   convention fields in `aim_runs`; they report `aim_runs: []` when they create
+   no Aim runs.
 3. Confirm the frozen experiment contract, ready preflight artifact, latest
    observation revision, host failure policy, and configured model settings.
    `continue_independent` is valid only when host preflight supports it and
@@ -120,6 +132,11 @@ writing Research State. Only the lead performs the following orchestration.
    verified host support and the remaining task is independent. Neither policy
    promises cancellation of tasks already running. Preserve failures as
    evidence for later rounds.
+
+   Before relying on a subagent's Aim evidence, inspect every reported run hash
+   and verify `run.experiment`, all `aimx.*` fields, and both convention tags.
+   Apply only the metadata-only backfill described in the handoff when needed;
+   a run without `run.experiment = "ar-{loop_id}"` remains nonconforming.
 6. Review results against the goal and refresh human steering before integrating.
    For code changes, cherry-pick selected
    candidate commits into a separate integration worktree based on this round's
@@ -140,6 +157,11 @@ writing Research State. Only the lead performs the following orchestration.
    outcomes, integration, and the aggregate ResearchUpdate are reconciled.
    The helper derives `goal_met` or `budget_exhausted`; inspect `status` before
    starting another round. Goal success takes precedence on the last round.
+9. **Optional Retrospective**: After outcomes and ResearchUpdate are reconciled
+   and before allocating the next round, the Lead may optionally invoke `$aimx-retro`
+   to review completed round evidence, evaluate confounded observations, and
+   receive structured next-step options. See [references/research-handoff.md](references/research-handoff.md)
+   for invocation and Lead decision rules.
 
 ## Explicit resume and finish
 

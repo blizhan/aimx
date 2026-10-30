@@ -85,6 +85,23 @@ Absolute data paths and Aim repository: {data_paths}, {aim_repo}
 Your separate output directory and result file: {outputs}, {result_file}
 Requested native model / reasoning effort: {requested_settings}
 
+Aim run metadata for this dispatch (fill every placeholder before spawning):
+  run.experiment = "ar-{loop_id}"
+  run["aimx"] = {"loop_id": "{loop_id}", "round": {round},
+                 "{branch_or_task_key}": "{branch_or_task_id}", "role": "{role}",
+                 "hypothesis": "{hypothesis}"}
+  tags = ["loop:{loop_id}", "round:{round}"]
+Use `branch` or `task_id` as `{branch_or_task_key}`. Assign one concrete role
+(`baseline`, `candidate`, or `control`) and one-line hypothesis per dispatch;
+every run created by this dispatch carries these values.
+
+Set this metadata when the training script/logger creates its Aim run, before
+training starts. If a run already exists, the only sanctioned backfill is via
+the Aim SDK `Run(run_hash=..., repo=...)`, writing only `run["aimx"]` and the
+two convention tags. This backfill cannot repair `run.experiment`; if it was
+not set at run creation, report the run as nonconforming. Never change metrics
+or other params during backfill.
+
 You are not alone in this project. Work only in your assigned worktree; preserve
 other agents' and the user's changes. Do not integrate into the primary worktree.
 You may read Aimx state and evidence and run the normal project training/logger.
@@ -104,6 +121,18 @@ must come from native runtime metadata; omit them when unknown.
   "status": "succeeded",
   "summary": "The candidate improved validation accuracy under the fixed seed.",
   "evidence": ["aim_run:FULL_RUN_HASH", "/absolute/path/to/validation.json"],
+  "aim_runs": [{
+    "hash": "FULL_RUN_HASH",
+    "experiment": "ar-accuracy-study",
+    "aimx": {
+      "loop_id": "accuracy-study",
+      "round": 1,
+      "task_id": "optimizer",
+      "role": "candidate",
+      "hypothesis": "The candidate improves validation accuracy under the fixed seed."
+    },
+    "tags": ["loop:accuracy-study", "round:1"]
+  }],
   "candidate_ref": "CANDIDATE_COMMIT_SHA",
   "actual_settings": {"model": "gpt-6.1-sol", "reasoning_effort": "high"}
 }
@@ -111,15 +140,20 @@ must come from native runtime metadata; omit them when unknown.
 
 Required: `status` (`succeeded`, `failed`, `interrupted`), nonempty `summary`,
 and `evidence` (array of nonempty reference strings, possibly empty for failure
-or missing evidence). Optional: `candidate_ref` and `actual_settings`. The
+or missing evidence). Include an `aim_runs` entry for every Aim run created and
+an empty `aim_runs` array when no Aim runs were created. Each entry repeats the
+exact run hash, experiment, `aimx` params, and convention tags for lead verification.
+Optional: `candidate_ref` and `actual_settings`. The
 skill lead records independent `execution_status`, `artifact_status`,
 `evaluation_status`, and `audit_status` axes in an `execution.outcome.record`;
 the worker status does not imply scientific success or goal completion.
 Use canonical `aim_run:<full-hash>` references for Aim evidence; use durable
-absolute files or source URLs for other evidence. The lead inspects references
-before relying on them and converts Aim run references into the existing
-ResearchUpdate evidence shape. Non-Aim evidence stays in artifacts/annotations;
-do not extend ResearchUpdate with new evidence kinds.
+absolute files or source URLs for other evidence. The lead verifies each run's
+`run.experiment`, `aimx.*` params, and tags before relying on its findings. The
+lead may apply the sanctioned metadata-only backfill above, then records the
+verified canonical run references in the existing ResearchUpdate evidence
+shape. Non-Aim evidence stays in artifacts/annotations; do not extend
+ResearchUpdate with new evidence kinds.
 
 ## Helper commands
 
