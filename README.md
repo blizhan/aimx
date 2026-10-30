@@ -202,6 +202,13 @@ Research State, use its convenience write commands, or modify loop checkpoints.
 The lead integrates selected changes through a validated integration worktree,
 then uses the merged primary-workspace version as the next round's baseline.
 
+Every run created in a loop uses `run.experiment = "ar-{loop_id}"`, the
+`loop_id`, integer `round`, branch or task ID, `role`, and one-line `hypothesis`
+under `run["aimx"]`, plus `loop:{loop_id}` and `round:{round}` tags. The Lead
+assigns these values before dispatch and verifies each reported run hash. Set
+metadata when creating the run; the only approved backfill writes `aimx.*`
+params and these tags, and cannot repair a missing experiment name.
+
 For example, invoke the installed skill with:
 
 ```text
@@ -245,6 +252,41 @@ task state blocks further dispatch until reconciled. Checkpoints are stored in
 The helper neither enforces agent roles nor starts agents/training: role rules
 and native model support are the host/lead's responsibility. This V1 provides
 explicit resume, not background scheduling, process recovery, or cost/GPU budgets.
+
+### Evidence-based research retrospective
+
+`$aimx-retro` provides structured, evidence-based retrospectives on research recorded
+in Aim and optional Aimx Research State or autoresearch loops. It works in two modes:
+
+1. **Standalone Retrospective**: A fresh Agent or researcher reviews historic experiments
+   from disk without requiring original chat context, Lead interaction, or checkpoints.
+2. **Between-Rounds Retrospective**: An autoresearch Lead optionally reviews a completed
+   round before allocating tasks for the next round.
+
+The skill enforces strict evidence basis rules (`observed`, `reported`, `inferred`, `unknown`),
+distinguishes execution failures from hypothesis failures, rejects hindsight bias, and
+produces an authoritative JSON report along with a canonical Markdown rendering.
+
+When runs follow the Aim run convention from
+[Bounded multi-agent research](#bounded-multi-agent-research) (`ar-<loop_id>`
+experiment, `aimx.*` params, `loop:`/`round:` tags), a report can include `aim_views` with loop
+and round-scoped AimQL for the Runs, Metrics, Params, and Scatters pages. A deep
+link is included only after its encoding is verified for the installed Aim
+version; otherwise `RETRO.md` shows the page and query to paste into Aim search.
+
+Retrospectives are **read-only** on source repositories and loop state. Publication
+writes exclusively to `<repo>/.aimx/retro/<report-id>/` (or an explicit safe `--output-root`):
+
+```bash
+# Validate a draft retrospective report (stdlib only, exits 0 on valid, 2 on invalid)
+uv run python skills/aimx-retro/scripts/report.py validate --file draft.json
+
+# Publish authoritative retro.json and canonical RETRO.md
+uv run python skills/aimx-retro/scripts/report.py publish --file draft.json
+```
+
+See the [retro report format](skills/aimx-retro/references/report-format.md) and
+[evidence guide](skills/aimx-retro/references/evidence-guide.md) for details.
 
 ### Roadmap
 

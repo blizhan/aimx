@@ -225,6 +225,12 @@ context 并重新判断，而不是静默重放旧决策。
 执行任务，只返回结构化结果和证据，不写 Research State，也不使用其便捷写命令或修改
 循环检查点。主 agent 在独立集成 worktree 验证选中的修改，合入主工作区后，使用新基线进入下一轮。
 
+每个循环创建的 Aim run 都使用 `run.experiment = "ar-{loop_id}"`，并在
+`run["aimx"]` 中记录 `loop_id`、整数 `round`、branch 或 task ID、`role` 和一行假说，
+同时添加 `loop:{loop_id}` 与 `round:{round}` tags。主 agent 在派发前填写这些值，
+并逐个核验结果中的 run hash。优先在创建 run 时写入；获准的事后补写仅修改
+`aimx.*` params 和这两个 tag，不能修复缺失的 experiment 名称。
+
 安装后可这样调用：
 
 ```text
@@ -262,6 +268,31 @@ uv run python skills/aimx-autoresearch/scripts/control.py status \
 `<aim-repo>/.aimx/autoresearch/<loop-id>/`，与 Research State 数据库独立。
 辅助脚本不会强制鉴别主/子 agent 身份，也不启动 agent 或训练；角色约束与模型能力检查由宿主和主 agent 执行。
 第一版支持显式续跑，不提供后台调度、自动进程恢复、费用预算或 GPU 调度。
+
+### 基于证据的研究复盘
+
+`$aimx-retro` 为保存在 Aim 及其可选 Aimx Research State 或 autoresearch 循环中的研究提供基于证据的结构化复盘。它支持两种模式：
+
+1. **独立复盘 (Standalone Retrospective)**：新 Agent 或研究员直接从磁盘记录复盘既有实验，无需原始对话记录、Lead 参与或检查点。
+2. **轮次间复盘 (Between-Rounds Retrospective)**：autoresearch 主 agent (Lead) 在一轮结束后、规划下一轮任务前选择性进行复盘。
+
+该 skill 严格区分证据来源（`observed`、`reported`、`inferred`、`unknown`），区分执行失败（OOM/崩溃）与科学假说失败，拒绝后见之明，并产出规范的 JSON 报告与对应的 Markdown 渲染。
+
+若 run 遵循[按预算运行多 Agent 研究](#按预算运行多-agent-研究)中的 Aim run 约定（`ar-<loop_id>` experiment、`aimx.*` params、`loop:`/`round:` tags），复盘报告可以加入按 loop 和 round 限定的 AimQL `aim_views`，
+供 Runs、Metrics、Params 和 Scatters 页面直接比较。只有在已验证当前 Aim 版本的
+deep-link 编码后才填写链接；否则 `RETRO.md` 会列出页面和可粘贴到 Aim 搜索框的 query。
+
+复盘过程对数据源与循环状态保持**只读**。发布时仅向 `<repo>/.aimx/retro/<report-id>/`（或指定的安全 `--output-root`）写入报告：
+
+```bash
+# 校验复盘草稿（仅标准库，合规返回 0，失败返回 2）
+uv run python skills/aimx-retro/scripts/report.py validate --file draft.json
+
+# 发布规范 retro.json 与渲染的 RETRO.md
+uv run python skills/aimx-retro/scripts/report.py publish --file draft.json
+```
+
+详见 [复盘报告格式规范](skills/aimx-retro/references/report-format.md) 与 [证据收集指南](skills/aimx-retro/references/evidence-guide.md)。
 
 ### Roadmap
 

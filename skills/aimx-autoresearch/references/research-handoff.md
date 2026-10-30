@@ -2,8 +2,9 @@
 
 All commands below target the same explicit, absolute Aim repository. Only
 the lead authors and submits ResearchUpdate. Subagents receive bounded context
-and return results; their normal training workflow may log new runs to Aim,
-but evidence inspection and the helper never mutate Aim metadata.
+and return results; their normal training workflow may log new runs to Aim and
+may write only the convention `aimx.*` params and `loop:`/`round:` tags on
+their own runs. Evidence inspection and the helper never mutate Aim metadata.
 
 ## Read and bootstrap
 
@@ -134,3 +135,42 @@ is separate from task completion or human governance acceptance.
 The helper tracks the lead's receipts but never writes this database itself.
 Human or external writes remain possible and must be reconciled throughout
 the loop.
+
+## Optional between-round retrospective
+
+The Lead may optionally invoke `$aimx-retro` between rounds and consume its report.
+
+### Timing & Conditions
+
+- **Timing**: Invoke `$aimx-retro` only AFTER:
+  1. All subagent tasks in the current round are finished.
+  2. Candidate merges and primary branch integration are completed.
+  3. The Lead's aggregate `ResearchUpdate` has been dry-run, committed, and recorded.
+  4. The round is checkpointed with status `completed`, or the loop is `blocked`/`interrupted` and the Lead wants a review before resuming.
+- **Optional**: Invoking retro is strictly optional. If `$aimx-retro` is absent or the Lead proceeds directly, the loop functions normally without error.
+- **No Extra Round**: Calling retro consumes NO experimental rounds. It is an analytical review, not an experiment dispatch.
+
+### Invoking `$aimx-retro` Between Rounds
+
+The Lead invokes retro using `mode: "between_rounds"`, providing:
+1. `repo`: The repository root path.
+2. `loop_id`: The current loop identifier.
+3. `rounds`: Array of rounds completed so far (e.g. `[1, 2]`).
+4. `objective`: The original research objective.
+5. `constraints`: Remaining GPU budget, rounds, or criteria.
+
+Example prompt for the retro skill:
+```text
+Conduct a between-rounds retrospective for loop "loop_distill_01" in repo "/data/project".
+Examine rounds [1, 2] targeting "Maximize accuracy with latency <= 50ms".
+Remaining budget: 2 rounds, 60 GPU hours.
+```
+
+### Lead Decision Authority
+
+1. **Lead Remains the Sole Writer**: Retro generates only report artifacts (`retro.json` and `RETRO.md`). Retro never writes to `.aim`, `.aimx/research`, or the loop checkpoint.
+2. **Rechecking Stale Assumptions**:
+   - If user steering changed, or environment conditions shifted, the Lead re-evaluates retro options before acting on them.
+   - If retro recommends `stop` because the goal is met or budget is exhausted, the Lead checkpoints the loop as `goal_met` or `budget_exhausted` rather than starting a new round.
+3. **Translating Advice into Action**:
+   - When adopting an option recommended by retro, the Lead designs the next round's tasks, sets control variables, and submits normal frontier/agenda updates in accordance with the standard autoresearch loop.

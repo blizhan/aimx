@@ -69,6 +69,7 @@ git("commit", "-qm", "candidate")
 result = {
     "status": "succeeded", "summary": "Candidate score " + str(task["candidate_score"]),
     "evidence": [str(evidence)], "candidate_ref": git("rev-parse", "HEAD"),
+    "aim_runs": [],
     "actual_settings": {
         "model": requested.get("model", "fixture/native-default"),
         "reasoning_effort": requested.get("reasoning_effort", "fixture/native-default"),

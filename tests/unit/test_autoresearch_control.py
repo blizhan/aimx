@@ -29,7 +29,7 @@ def _finish(control, directory: Path, *, statuses: tuple[str, ...], met: bool = 
                 "task_file": "task.txt", "worktree": "worktree",
             }]})
         agents.append({"id": agent["id"], "dispatch_status": "finished",
-                       "result": {"status": status, "summary": "Task outcome", "evidence": []}})
+                       "result": {"status": status, "summary": "Task outcome", "evidence": [], "aim_runs": []}})
     return control.checkpoint(directory, {
         "round": current["round"], "agents": agents, "complete": True,
         "update_file": f"round-{current['round']}.json",
@@ -51,6 +51,60 @@ def test_validate_normalizes_paths_and_replaces_round_agents_without_writes(
     assert result["effective_rounds"][0]["agents"][1] == {"id": "verify"}
     assert result["effective_rounds"][1]["agents"] == [{"id": "explore"}]
     assert not (autoresearch_config.parent / "data/.aimx").exists()
+
+
+def test_agent_result_accepts_aim_run_convention(autoresearch_control) -> None:
+    control = autoresearch_control
+    result = {
+        "status": "succeeded",
+        "summary": "Compared the candidate against its control.",
+        "evidence": ["aim_run:full-run-hash"],
+        "aim_runs": [{
+            "hash": "full-run-hash",
+            "experiment": "ar-study",
+            "aimx": {
+                "loop_id": "study",
+                "round": 2,
+                "task_id": "candidate-task",
+                "role": "candidate",
+                "hypothesis": "The candidate improves held-out accuracy.",
+            },
+            "tags": ["loop:study", "round:2"],
+        }],
+    }
+    control.validate_result(result, "study", 2)
+
+    result["aim_runs"][0]["tags"] = ["loop:study"]
+    with pytest.raises(control.ControlError, match="round:2"):
+        control.validate_result(result, "study", 2)
+
+    result["aim_runs"][0]["tags"] = ["loop:study", "round:2"]
+    result["evidence"] = ["/absolute/path/to/validation.json"]
+    with pytest.raises(control.ControlError, match="missing from evidence"):
+        control.validate_result(result, "study", 2)
+
+
+def test_agent_result_rejects_aim_runs_outside_checkpoint(autoresearch_control) -> None:
+    control = autoresearch_control
+    run = {
+        "hash": "h1", "experiment": "ar-other", "tags": ["loop:other", "round:99"],
+        "aimx": {"loop_id": "other", "round": 99, "branch": "b", "role": "candidate", "hypothesis": "h"},
+    }
+    result = {"status": "succeeded", "summary": "s", "evidence": ["aim_run:h1"], "aim_runs": [run]}
+    with pytest.raises(control.ControlError, match="checkpoint loop study"):
+        control.validate_result(result, "study", 1)
+    with pytest.raises(control.ControlError, match="current round 1"):
+        control.validate_result(result, "other", 1)
+
+
+def test_agent_result_requires_aim_runs_matching_evidence(autoresearch_control) -> None:
+    control = autoresearch_control
+    unlisted = {"status": "succeeded", "summary": "s", "evidence": ["aim_run:X"], "aim_runs": []}
+    with pytest.raises(control.ControlError, match="missing from aim_runs"):
+        control.validate_result(unlisted, "study", 1)
+    del unlisted["aim_runs"]
+    with pytest.raises(control.ControlError):
+        control.validate_result(unlisted, "study", 1)
 
 
 @pytest.mark.parametrize("changes", [
@@ -229,7 +283,7 @@ def test_changed_resume_config_rejected_without_resetting_state(
     {"round": 1, "complete": True},
     {"round": 1, "agents": [{"id": "explore", "dispatch_status": "started"}]},
     {"round": 1, "agents": [{"id": "explore", "dispatch_status": "finished",
-                             "result": {"status": "succeeded", "summary": "Unlaunched", "evidence": []}}]},
+                             "result": {"status": "succeeded", "summary": "Unlaunched", "evidence": [], "aim_runs": []}}]},
     {"status": "goal_met"},
     {"goal_assessment": [{"criterion": "Easier criterion", "met": True, "evidence": ["fake"], "rationale": "changed"}]},
 ])
@@ -258,7 +312,7 @@ def test_goal_requires_evidence_and_completed_round_requires_lead_receipt(
     control.begin_round(directory, 1, "baseline")
     control.checkpoint(directory, {"round": 1, "agents": [
         {"id": agent, "dispatch_status": "finished",
-         "result": {"status": "failed", "summary": "Spawn failed", "evidence": []}}
+         "result": {"status": "failed", "summary": "Spawn failed", "evidence": [], "aim_runs": []}}
         for agent in ("explore", "verify")
     ]})
     with pytest.raises(control.ControlError, match="ResearchUpdate receipt"):

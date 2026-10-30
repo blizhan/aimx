@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aimx Retro"
+  short_description: "Conduct evidence-based retrospectives on Aimx research"
+  default_prompt: "Use $aimx-retro to review research evidence, reconstruct decisions, challenge conclusions, and recommend the next step."

@@ -87,6 +87,7 @@ Why `3.12`:
 - Existing local Aim repositories on disk, read-only; query/trace data and run timing metadata are read from `.aim` repositories without modification (007-default-query-runtime)
 - Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library (`sqlite3`, `json`, `pathlib`, `uuid`, `datetime`), existing Aim SDK usage for read-only run-reference validation, existing `rich` rendering support; no new runtime dependency planned (008-research-state)
 - Aimx-owned local SQLite sidecar at `<repo>/.aimx/research/state.sqlite3` using append-only commit/event records; associated Aim repository remains read-only (008-research-state)
+- Delivered Retro skill (`aimx-retro`) and report helper: generates authoritative `retro.json` and canonical `RETRO.md` under `<repo>/.aimx/retro/<report-id>/` or an explicit output root; source Aim data, Research State and loop checkpoints remain strictly read-only. Uses the standard library with existing Python 3.12 / pytest stack; no new runtime dependency (008-aimx-retro).
 
 ## Recent Changes
 - 001-aim-command-passthrough: Added Python 3.12 for development, runtime support `>=3.10,<3.13` + Python standard library, native Aim CLI (external runtime prerequisite for delegated commands), pytest for test automation
