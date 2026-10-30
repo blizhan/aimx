@@ -10,50 +10,28 @@
 [![CI](https://github.com/blizhan/aimx/actions/workflows/CI.yaml/badge.svg)](https://github.com/blizhan/aimx/actions/workflows/CI.yaml)
 [![Publish](https://github.com/blizhan/aimx/actions/workflows/publish.yaml/badge.svg)](https://github.com/blizhan/aimx/actions/workflows/publish.yaml)
 
-`aimx` is a safe, additive, CLI-first companion for native [Aim](https://github.com/aimhubio/aim).
+`aimx` is a safe, CLI-first companion for native [Aim](https://github.com/aimhubio/aim), built for both terminal users and AI research agents.
 
-It adds focused terminal workflows for querying, comparing, previewing, and
-exporting Aim run data. Commands that `aimx` does not own are delegated to the
-native [`aim`](https://github.com/aimhubio/aim) executable already available in
-the user's environment.
+It is organized around three layers:
 
+1. **Read-only Observation (`query` & `trace`)**: Inspect run metrics, hyperparameters, time-series curves, distributions, and inline terminal images in human- or machine-readable formats (`--json`, `--csv`, `--plain`).
+2. **Research Control Plane (`research`, `finding`, `lineage`, `frontier`)**: Persist what was learned and what to run next in a sidecar database (`.aimx/research/state.sqlite3`) while keeping `.aim` strictly read-only.
+3. **Agent Skills (`skills/`)**: Ready-to-use workflows for evidence collection, bounded multi-agent research loops, and evidence-grounded retrospectives.
+
+Commands not owned by `aimx` are transparently delegated to the native `aim` CLI.
+
+---
 
 ## Quick Start
 
-### Install
+### 1. Install CLI
 
 ```bash
-# install into the current project
 uv add aimx
-
-# Or use pip
-pip install aimx
+# or: pip install aimx
 ```
 
-### Install the agent skills
-
-This repository also includes agent skills for Aimx AutoResearch workflows.
-The existing `aimx` skill is the Observe subsystem for `log_experiment`, where
-an LLM collects run parameters, metric summaries, traces, and image evidence
-from a local Aim repository. The build skills help create or audit repositories
-that are ready for that loop.
-
-```bash
-npx skills install blizhan/aimx
-```
-
-After installation, invoke:
-
-- `$aimx` for read-only experiment evidence collection.
-- `$aimx-autoresearch` for bounded research rounds with multiple subagents,
-  per-agent model/effort settings, and explicit checkpoint resume.
-- `$aimx-hydra-lightning-builder` for Hydra + Lightning + Aim scaffold and
-  migration-audit workflows.
-
-The skills assume the `aimx` CLI is available in the environment that performs
-experiment inspection.
-
-### Check your environment
+Verify your environment and native Aim passthrough:
 
 ```bash
 aimx --help
@@ -61,64 +39,124 @@ aimx version
 aimx doctor
 ```
 
-### Query an Aim repository
+### 2. Query an Aim Repository
 
-If your current working directory is an Aim repo root, `--repo` can be omitted.
-When provided, `--repo` accepts either the repository root, such as `data`, or
-the metadata directory itself, such as `data/.aim`.
+If your working directory is an Aim repo root, `--repo` can be omitted. Otherwise pass the repo root (`data`) or `.aim` directory (`data/.aim`):
 
 ```bash
-# Summarize metrics from all runs
-aimx query metrics --repo data
-
-# Preview images in supported terminals
-aimx query images --repo data
-
-# Compare run parameters and durations
-aimx query params --repo data
-
-# Plot metric time series from all runs
-aimx trace --repo data
+aimx query metrics --repo data      # Summarize metrics across runs
+aimx query params --repo data       # Compare hyperparameters and durations
+aimx query images --repo data       # Preview logged images inline in the terminal
+aimx trace --repo data              # Plot metric curves in the terminal
 ```
 
-## Features
+### 3. Install Agent Skills (Optional)
 
-- **Safe native Aim coexistence**: `aimx` does not replace the `aim` executable
-  or modify installed Aim packages.
-- **Explicit command ownership**: owned `aimx` commands stay small and focused;
-  everything else is passed through to native Aim.
-- **Scriptable query output**: query metrics, images, and run params as rich
-  terminal tables, plain text, or JSON.
-- **Terminal image previews**: render Aim image artifacts inline when the
-  terminal supports graphics, with a safe text fallback.
-- **Metric tracing**: plot, tabulate, or export matching time series with step
-  filters and sampling controls.
-- **Read-only defaults**: inspection, query, diagnostic, and passthrough flows
-  do not mutate `.aim` repository data.
-- **Durable AutoResearch control plane**: keep Findings, lineage, human
-  steering, bounded context, and next-experiment contracts in the Aimx-owned
-  `.aimx/research` sidecar while Aim remains the evidence source.
+```bash
+npx skills install blizhan/aimx
+```
 
-## AutoResearch
+| Skill | Purpose |
+| --- | --- |
+| `$aimx` | Read-only experiment observation and Research State updates. |
+| `$aimx-autoresearch` | Bounded multi-agent research loops with per-agent model/effort configs and checkpoint resume. |
+| `$aimx-retro` | Evidence-based research retrospectives (`retro.json` & `RETRO.md`). |
+| `$aimx-hydra-lightning-builder` | Scaffold or audit Hydra + PyTorch Lightning + Aim projects. |
 
-Aimx provides a durable **research control plane** around Aim experiment
-evidence. It deliberately separates experiment data, research meaning, and
-agent execution:
+---
 
-- **Aim** stores what happened: runs, params, metrics, traces, images, and
-  distributions.
-- **Aimx Research State** stores what was learned and what should happen next:
-  Findings, Lineage, Frontier policy, Agenda items, bounded context, and
-  provenance.
-- **External agents** such as Codex or Claude reason, change project code, and
-  execute experiments. Aimx does not host an agent or scheduler.
-- **Humans** can review, accept/reject, comment on, or redirect durable research
-  state without editing an agent prompt or relying on a previous chat session.
+## Command Overview
 
-> **Aim stores what happened. Aimx stores what we learned and what to do next.
-> The agent decides and executes.**
+| Command | Purpose |
+| --- | --- |
+| `aimx` / `aimx help` / `aimx version` | Show CLI help or version info. |
+| `aimx doctor` | Verify native `aim` availability for passthrough. |
+| `aimx query metrics [AIMQL]` | Summarize matching metric series (`last`, `min`, `max`, step count). |
+| `aimx query params [AIMQL]` | Compare run-level parameters and run durations. |
+| `aimx query images [AIMQL]` | List and inline-preview matching image artifacts. |
+| `aimx trace [AIMQL]` | Plot, tabulate, or export metric time series. |
+| `aimx trace distribution [AIMQL]` | Visualize or export tracked distribution histograms and heatmaps. |
+| `aimx research` | Read/update durable research state, bounded context, agenda, and next work. |
+| `aimx finding` / `lineage` / `frontier` | Inspect and govern findings, relationships, and research directions. |
+| `aimx <native-command>` | Passed through directly to native `aim` (e.g. `aimx up`, `aimx runs ls`). |
 
-### Architecture
+---
+
+## Observation CLI (`query` & `trace`)
+
+All `query` and `trace` commands accept an optional [AimQL](https://aimstack.readthedocs.io/en/latest/using/search.html) filter expression (defaults to `run.hash != ''`). Short run hashes (e.g. `run.hash == 'eca37394'`) are expanded automatically.
+
+### Common Filtering & Output Flags
+
+- **Output format**: Rich terminal view by default; `--json`, `--csv` (`trace`), `--table` (`trace`), or `--oneline` / `--plain` for scripts and agents.
+- **Range & density**: `--steps START:END`, `--epochs START:END`, `--head N`, `--tail N`, `--every K`.
+
+### Metrics (`aimx query metrics`)
+
+Groups matching metric series by run and reports summary statistics.
+
+![aimx query output preview](static/metrics.png)
+
+```bash
+aimx query metrics "metric.name == 'loss'" --repo data
+aimx query metrics "metric.name == 'loss' and run.hparams.lr > 0.001" --repo data --json
+aimx query metrics "metric.name == 'loss'" --repo data --steps 100:500 --every 5 --oneline
+```
+
+### Run Parameters (`aimx query params`)
+
+Compares run-level parameters and durations across runs. Missing requested keys render as `-` in tables and under `missing_params` in JSON.
+
+![aimx query params output preview](static/params.png)
+
+```bash
+aimx query params --repo data
+aimx query params "run.experiment == 'cloud-segmentation'" --repo data \
+  --param hparam.lr --param hparam.optimizer --json
+```
+
+### Images (`aimx query images`)
+
+Renders matched images inline on [supported graphics terminals](https://github.com/lnqs/textual-image/tree/main#support-matrix-1) (iTerm2, Kitty, WezTerm, Konsole, Ghostty, VS Code, etc.) and falls back to ANSI character art elsewhere.
+
+![aimx query images output preview](static/images.png)
+
+```bash
+aimx query images --repo data
+aimx query images "images" --repo data --epochs 10:50 --max-images 10
+aimx query images --repo data --json   # Metadata only, disables inline rendering
+```
+
+### Metric Curves (`aimx trace`)
+
+Overlays matching metric sequences on a terminal plot, or exports full series.
+
+```bash
+aimx trace "metric.name == 'loss'" --repo data
+aimx trace "metric.name == 'loss'" --repo data --table
+aimx trace "metric.name == 'loss'" --repo data --csv > loss.csv
+aimx trace "metric.name == 'loss'" --repo data --tail 50 --json
+```
+
+### Distributions (`aimx trace distribution`)
+
+Renders a current-step histogram and step-by-bin heatmap for tracked distribution sequences, or exports raw histogram tensors.
+
+![aimx trace distribution output preview](static/distributions.png)
+
+```bash
+aimx trace distribution --repo data
+aimx trace distribution "distribution.name == 'weights'" --repo data --step 12300
+aimx trace distribution "distribution.name == 'weights'" --repo data --json
+```
+
+---
+
+## AutoResearch Control Plane
+
+Aimx separates experiment logging, durable research memory, and agent execution:
+
+> **Aim stores what happened. Aimx stores what we learned and what to do next. External agents decide and execute.**
 
 ```mermaid
 flowchart TB
@@ -131,442 +169,86 @@ flowchart TB
     RS --> DB[.aimx/research/state.sqlite3]
 ```
 
-Aim data under `.aim` remains the evidence source and stays read-only during
-Research State workflows. Explicit research writes go only to the Aimx-owned
-`.aimx/research/state.sqlite3` sidecar.
-
-### Core concepts
+### Core Concepts
 
 | Concept | Role |
 | --- | --- |
-| **Finding** | A durable, evidence-grounded research claim. |
-| **Lineage** | Typed relationships between Findings such as support, challenge, refinement, or supersession. |
-| **Frontier** | Human/agent-steerable research directions and priorities. |
-| **Agenda** | Persisted Experiment Contracts that describe already-proposed next work. |
-| **Research Context** | Deterministic, objective-specific shared memory compiled under a byte budget. |
-| **ResearchUpdate** | One atomic mutation that records Findings, lineage, annotations, Frontier changes, and Agenda lifecycle changes. |
+| **Finding** | Durable, immutable research claim backed by Aim run or file evidence. |
+| **Lineage** | Typed links between Findings (`supports`, `challenges`, `refines`, `supersedes`). |
+| **Frontier** | Human/agent-steerable research directions, priorities, and statuses. |
+| **Agenda** | Persisted Experiment Contracts for proposed next experiments. |
+| **Research Context** | Deterministic, objective-specific shared memory compiled within a strict UTF-8 byte budget. |
+| **ResearchUpdate** | Atomic, optimistic-concurrency transaction updating Findings, Lineage, Frontier, and Agenda. |
 
-### One research round
+### Single-Round Workflow & Cross-Agent Handoff
 
-```text
-research context
-    -> research next / agenda
-    -> agent reasons, changes code, and runs the experiment
-    -> Aim records evidence
-    -> aimx query / trace observes the result
-    -> agent interprets the evidence
-    -> research update
-    -> Finding / Lineage / Frontier / Agenda evolve
-    -> next round
-```
-
-The next agent session does not need the previous chat transcript. It can read
-the same Research State, compile a fresh bounded context, and continue from the
-persisted Agenda and Findings.
+Because state lives in `<repo>/.aimx/research/state.sqlite3`, any new agent session can resume without prior chat transcripts:
 
 ```bash
+# 1. Inspect state, compile bounded context (bytes), and pick next Agenda contract
 aimx research state --repo data --json
-aimx research context --repo data \
-  --objective "improve low-data accuracy" \
-  --budget 12000 --json
+aimx research context --repo data --objective "improve low-data accuracy" --budget 12000 --json
 aimx research next --repo data --json
 
-# After the external experiment and read-only Aim inspection:
+# 2. Agent modifies code, runs experiment, and inspects read-only Aim evidence
+aimx query metrics "metric.name == 'accuracy'" --repo data --json
+
+# 3. Validate and commit atomic ResearchUpdate (exits 3 on revision conflict)
 aimx research update --repo data --file update.json --dry-run --json
 aimx research update --repo data --file update.json --json
 ```
 
-The context budget covers the complete UTF-8 JSON response, including metadata,
-evidence references, selection notes, and the terminating LF. This is stricter
-than the earlier items-only budget, so the same limit can include fewer items
-or report that a complete correction group will not fit. Research reads do not
-create `.aimx`; explicit updates write only `data/.aimx/research/state.sqlite3`.
-Revision conflicts return exit status
-`3`, requiring the caller to refresh context and reconsider its update rather
-than silently replay a stale decision.
+See the [AutoResearch protocol reference](skills/aimx/references/autoresearch-protocol.md) for payload schemas and revision-conflict rules.
 
-See the
-[AutoResearch protocol reference](skills/aimx/references/autoresearch-protocol.md)
-and the [008 research handoff quickstart](specs/008-autoresearch-knowledge-loop/quickstart.md)
-for file evidence, receipts, and correction-aware context contracts.
+### Bounded Multi-Agent Loops (`$aimx-autoresearch`)
 
-### Bounded multi-agent research
+`$aimx-autoresearch` orchestrates multi-round, multi-subagent research against a declarative JSON config ([example](skills/aimx-autoresearch/assets/config.example.json)):
 
-`$aimx-autoresearch` connects the research control plane to the current agent
-host. Supply a goal and success criteria, a maximum number of rounds, and a
-default agent list. Each agent can specify `model` and `reasoning_effort`;
-per-round overrides replace the full agent list for that round. Omitted
-settings inherit host defaults. Explicit settings must be supported by the
-host; the skill stops rather than silently substituting them.
-
-**Only the lead agent authors, dry-runs, and submits ResearchUpdate.** Subagents
-run isolated tasks and return structured results/evidence. They must not write
-Research State, use its convenience write commands, or modify loop checkpoints.
-The lead integrates selected changes through a validated integration worktree,
-then uses the merged primary-workspace version as the next round's baseline.
-
-Every run created in a loop uses `run.experiment = "ar-{loop_id}"`, the
-`loop_id`, integer `round`, branch or task ID, `role`, and one-line `hypothesis`
-under `run["aimx"]`, plus `loop:{loop_id}` and `round:{round}` tags. The Lead
-assigns these values before dispatch and verifies each reported run hash. Set
-metadata when creating the run; the only approved backfill writes `aimx.*`
-params and these tags, and cannot repair a missing experiment name.
-
-For example, invoke the installed skill with:
-
-```text
-Use $aimx-autoresearch with autoresearch.json. Run until its goal is supported
-by evidence or its round budget is exhausted. Only the lead writes ResearchUpdate.
-```
-
-Start from the [example config](skills/aimx-autoresearch/assets/config.example.json).
-Paths are relative to the config file; update paths and native model IDs for
-your project/host. Keep code-changing loops' primary workspace clean, including
-user-authored config files. The complete [loop contract](skills/aimx-autoresearch/references/loop-contract.md)
-describes dispatch, results, and checkpoint patches.
-
-From this repository, the standard-library helper can be used directly:
+- **Lead-only writes**: Subagents run isolated tasks in separate worktrees and return structured evidence; **only the lead agent** integrates code and submits `ResearchUpdate`.
+- **Explicit model & budget control**: Configure `max_rounds`, success criteria, and per-agent `model` / `reasoning_effort`.
+- **Traceable Aim runs**: Loop runs record `run.experiment = "ar-{loop_id}"`, `run["aimx"]` metadata (`loop_id`, `round`, `role`, `hypothesis`), and `loop:` / `round:` tags.
+- **Explicit checkpoint resume**: State is tracked in `<repo>/.aimx/autoresearch/<loop-id>/`.
 
 ```bash
-# Read-only validation and resolved settings for every round
+# Validate config, initialize loop checkpoint, or inspect status
 uv run python skills/aimx-autoresearch/scripts/control.py validate --config autoresearch.json
-
-# Explicitly create a loop checkpoint (does not launch any tasks)
 uv run python skills/aimx-autoresearch/scripts/control.py init --config autoresearch.json --loop-id accuracy-study
-
-# Inspect the existing loop and verify its original config
 uv run python skills/aimx-autoresearch/scripts/control.py status \
   --loop-dir data/.aimx/autoresearch/accuracy-study --config autoresearch.json
 ```
 
-When installed elsewhere, use the script inside that installed skill directory,
-not a path assumed to exist in the research project.
+See the [loop contract](skills/aimx-autoresearch/references/loop-contract.md) for full dispatch, integration, and resume rules.
 
-One round is one configured batch: it consumes budget before the first spawn
-attempt, including failed rounds. Host capacity may require waves within the
-same round. Failed slots are not retried within that round. The lead evaluates
-all original criteria after aggregation; a final-round success takes precedence
-over budget exhaustion.
+### Evidence-Based Retrospectives (`$aimx-retro`)
 
-To resume, invoke `$aimx-autoresearch` with the existing `loop_dir` and original
-config. Budget and recorded task identities remain unchanged; unknown live
-task state blocks further dispatch until reconciled. Checkpoints are stored in
-`<aim-repo>/.aimx/autoresearch/<loop-id>/`, independently of Research State.
-The helper neither enforces agent roles nor starts agents/training: role rules
-and native model support are the host/lead's responsibility. The lead verifies
-the actual Aimx commands, evaluator preflight, round model settings, dataset
-observation snapshot, and host failure policy before dispatch. Research receipts
-separate saved artifacts from committed knowledge; terminal follow-up uses a
-separate activity and leaves the finished loop unchanged. This V1 provides
-explicit resume, not background scheduling, process recovery, or cost/GPU budgets.
-
-### Evidence-based research retrospective
-
-`$aimx-retro` provides structured, evidence-based retrospectives on research recorded
-in Aim and optional Aimx Research State or autoresearch loops. It works in two modes:
-
-1. **Standalone Retrospective**: A fresh Agent or researcher reviews historic experiments
-   from disk without requiring original chat context, Lead interaction, or checkpoints.
-2. **Between-Rounds Retrospective**: An autoresearch Lead optionally reviews a completed
-   round before allocating tasks for the next round.
-
-The skill enforces strict evidence basis rules (`observed`, `reported`, `inferred`, `unknown`),
-distinguishes execution failures from hypothesis failures, rejects hindsight bias, and
-produces an authoritative JSON report along with a canonical Markdown rendering.
-
-When runs follow the Aim run convention from
-[Bounded multi-agent research](#bounded-multi-agent-research) (`ar-<loop_id>`
-experiment, `aimx.*` params, `loop:`/`round:` tags), a report can include `aim_views` with loop
-and round-scoped AimQL for the Runs, Metrics, Params, and Scatters pages. A deep
-link is included only after its encoding is verified for the installed Aim
-version; otherwise `RETRO.md` shows the page and query to paste into Aim search.
-
-Retrospectives are **read-only** on source repositories and loop state. Publication
-writes exclusively to `<repo>/.aimx/retro/<report-id>/` (or an explicit safe `--output-root`):
+`$aimx-retro` audits completed experiments (standalone or between autoresearch rounds) without modifying `.aim` or loop state. It separates execution failures from hypothesis failures, tags every claim's evidence basis (`observed`, `reported`, `inferred`, `unknown`), and publishes to `<repo>/.aimx/retro/<report-id>/`:
 
 ```bash
-# Validate a draft retrospective report (stdlib only, exits 0 on valid, 2 on invalid)
 uv run python skills/aimx-retro/scripts/report.py validate --file draft.json
-
-# Publish authoritative retro.json and canonical RETRO.md
 uv run python skills/aimx-retro/scripts/report.py publish --file draft.json
 ```
 
-See the [retro report format](skills/aimx-retro/references/report-format.md) and
-[evidence guide](skills/aimx-retro/references/evidence-guide.md) for details.
+See the [retro report format](skills/aimx-retro/references/report-format.md) and [evidence guide](skills/aimx-retro/references/evidence-guide.md).
 
-### Roadmap
+---
 
-#### Research Control Plane V1 — implemented
+## Safety & Runtime Contract
 
-- [x] Durable Findings, annotations, governance, and Lineage
-- [x] Atomic ResearchUpdate with revision conflicts and idempotency
-- [x] Deterministic bounded Research Context
-- [x] Human/agent-steerable Frontier
-- [x] Durable Agenda / Experiment Contracts and deterministic `research next`
-- [x] Cross-session and cross-agent handoff
-- [x] Read-only Aim evidence integration
-- [x] Bounded multi-agent AutoResearch skill with configuration and checkpoints
+- **Non-invasive**: `aimx` never replaces the `aim` binary or modifies installed `aim` packages.
+- **Read-only `.aim`**: All `query`, `trace`, `doctor`, `research`, and `retro` commands treat `.aim` as strictly read-only.
+- **Isolated sidecars**: Explicit writes only touch `<repo>/.aimx/` (`research/`, `autoresearch/`, `retro/`), which can be backed up or deleted without affecting Aim runs.
 
-#### Next directions
+## Documentation & Development
 
-- [ ] Agent execution/orchestration adapters
-- [ ] Experiment lifecycle adapters
-- [ ] Richer automated Finding synthesis
-- [ ] Research State visualization and exploration
-- [ ] Longer-running autonomous research loops
+- [CONSTITUTION.md](./CONSTITUTION.md) — Project scope and safety invariants.
+- [specs/](./specs) — Feature specifications, contracts, and quickstarts.
+- [AimQL basics](https://aimstack.readthedocs.io/en/latest/using/search.html) — Filter expression syntax.
 
-These are directions rather than compatibility promises. Aimx will continue to
-keep the control-plane boundary explicit instead of turning into an implicit
-Aim mutator or a general-purpose scheduler.
-
-## Commands
-
-### Owned commands
-
-| Command | Purpose |
-| --- | --- |
-| `aimx` / `aimx --help` / `aimx help` | Show CLI help and owned command guidance. |
-| `aimx version` | Print the installed `aimx` version. |
-| `aimx doctor` | Check whether native Aim is available for passthrough. |
-| `aimx query metrics` | Summarize matching metric series. |
-| `aimx query images` | List and optionally preview matching image records. |
-| `aimx query params` | Compare run-level parameters across matching runs. |
-| `aimx trace` | Plot, tabulate, or export metric time series. |
-| `aimx research` | Read/update durable research state, bounded context, agenda, and next work. |
-| `aimx finding` | Inspect and govern durable findings. |
-| `aimx lineage` | Inspect and edit finding relationships. |
-| `aimx frontier` | Inspect and steer project-defined research directions. |
-
-Both `aimx query` and `aimx trace` accept optional **AimQL** expressions as
-their filter argument. When the expression is omitted or blank, `aimx` uses
-`run.hash != ''`. AimQL is Aim's native Python-like query language.
-
-```bash
-aimx query metrics "metric.name == 'loss' and run.hparams.learning_rate > 0.001"
-```
-
-For syntax, supported properties (`run.*`, `metric.*`, `images.*`), and
-security restrictions, see
-[Aim - Query language basics](https://aimstack.readthedocs.io/en/latest/using/search.html).
-
-### Query metrics
-
-`aimx query metrics` groups matching metric series by run and reports useful
-statistics such as step count, last value, min value, and max value.
-
-![aimx query output preview](static/metrics.png)
-
-```bash
-# Rich table, colored in terminals by default
-aimx query metrics --repo data
-
-# Filter with AimQL
-aimx query metrics "metric.name == 'loss'" --repo data
-
-# Short run hashes are transparently expanded to full hashes
-aimx query metrics "run.hash == 'eca37394' and metric.name == 'loss'" --repo data
-
-# Tab-separated output for shell tools
-aimx query metrics "metric.name == 'loss'" --repo data --oneline
-
-# Structured JSON, nested by run
-aimx query metrics "metric.name == 'loss'" --repo data --json
-
-# Step or epoch windows
-aimx query metrics "metric.name == 'loss'" --repo data --steps 100:500
-aimx query metrics "metric.name == 'loss'" --repo data --epochs 1:10
-
-# Density sampling
-aimx query metrics "metric.name == 'loss'" --repo data --head 20
-aimx query metrics "metric.name == 'loss'" --repo data --tail 20
-aimx query metrics "metric.name == 'loss'" --repo data --every 5
-```
-
-### Query images
-
-`aimx query images` reads image metadata and, when possible, renders matched
-images directly in the terminal.
-
-![aimx query images output preview](static/images.png)
-
-```bash
-# Inline preview in modern terminals
-aimx query images --repo data
-
-# Metadata output only
-aimx query images --repo data --plain
-aimx query images --repo data --json
-
-# Filter and sample matching image rows
-aimx query images "images" --repo data --epochs 10:50 --head 10
-
-# Control the TTY preview cap
-aimx query images "images" --repo data --max-images 20
-aimx query images "images" --repo data --max-images 0
-```
-
-When stdout is a TTY and `aimx` detects a graphics-capable terminal, matched
-images render inline. On plain ANSI terminals, `aimx` falls back to half-block
-character art and still exits with code `0`.
-
-Terminal rendering is provided by
-[`textual-image`](https://github.com/lnqs/textual-image/tree/main#support-matrix-1).
-Confirmed working terminals include iTerm2, Kitty, Konsole, WezTerm, foot, tmux
-(Sixel), xterm (Sixel), Windows Terminal, and VS Code integrated terminal. Warp
-and GNOME Terminal are not supported.
-
-To disable inline rendering, redirect stdout or use `--plain` / `--json`.
-
-### Query run params
-
-`aimx query params` reads run-level Aim metadata without modifying the
-repository. By default, it shows a readable set of discovered parameter columns.
-Use `--param KEY` one or more times to align specific flattened params across
-matching runs.
-
-![aimx query params output preview](static/params.png)
-
-```bash
-# Compare discovered params across all matching runs
-aimx query params --repo data
-
-# Select specific params
-aimx query params "run.experiment == 'cloud-segmentation'" --repo data \
-  --param hparam.lr \
-  --param hparam.optimizer
-
-# Script-friendly output
-aimx query params "run.experiment == 'cloud-segmentation'" --repo data --plain
-aimx query params "run.experiment == 'cloud-segmentation'" --repo data --json
-
-# Filter with AimQL run fields
-aimx query params "run.hparam.lr == 0.0001" --repo data --param hparam.lr
-```
-
-Missing selected params are displayed as `-` in terminal/plain output and listed
-under `missing_params` in JSON. Params output also includes run duration as a
-table column, a plain-output field after run name, and a JSON `duration` object
-with `seconds`, `status`, and `source`.
-
-### Trace metrics
-
-`aimx trace` fetches the full value sequence for one or more matching metrics
-and renders a curve, table, CSV, or JSON export. Multiple matching runs are
-overlaid on the same plot.
-
-```bash
-# Plot all matching loss curves
-aimx trace --repo data
-
-# Filter with AimQL
-aimx trace "metric.name == 'loss'" --repo data
-
-# Plot one run by short hash
-aimx trace "run.hash == 'eca37394' and metric.name == 'loss'" --repo data
-
-# Step-by-step table
-aimx trace "metric.name == 'loss'" --repo data --table
-
-# CSV or JSON export
-aimx trace "metric.name == 'loss'" --repo data --csv > loss.csv
-aimx trace "metric.name == 'loss'" --repo data --json
-
-# Step filtering and sampling
-aimx trace "metric.name == 'loss'" --repo data --steps 100:500
-aimx trace "metric.name == 'loss'" --repo data --head 50
-aimx trace "metric.name == 'loss'" --repo data --every 10
-```
-
-Output modes: default plot, `--table`, `--csv`, `--json`.
-Display controls: `--width W`, `--height H`, `--no-color`.
-
-### Trace distributions
-
-`aimx trace distribution` fetches tracked Aim distribution sequences. By
-default it prints the matched distribution names, selects the first match, and
-renders a non-interactive Rich terminal visual with a web-style blue-gradient
-current-step histogram and step-by-bin heatmap. Use `--table`, `--csv`, or
-`--json` for tensor inspection and scripting.
-
-![aimx trace distribution output preview](static/distributions.png)
-
-```bash
-# Show a web-like terminal visual for the first matched distribution
-aimx trace distribution --repo data
-
-# Inspect a specific training step; nearest tracked step is used if needed
-aimx trace distribution "distribution.name != ''" --repo data --step 12300
-
-# Show distribution tensors in a readable table
-aimx trace distribution "distribution.name == 'weights'" --repo data --table
-
-# Export distribution histograms for scripting
-aimx trace distribution "distribution.name == 'weights'" --repo data --csv
-aimx trace distribution "distribution.name == 'weights'" --repo data --json
-```
-
-### Common query options
-
-- Output: `--json`, `--oneline` / `--plain`, or the default rich terminal view.
-- Filtering: `--steps start:end` or `--epochs start:end` where supported.
-- Sampling: `--head N`, `--tail N`, `--every K`.
-- Images: `--max-images N` controls the TTY preview cap.
-- Params: `--param KEY` can be repeated to select parameter columns.
-- Diagnostics: `--verbose` prints additional details where supported.
-
-### Native Aim passthrough
-
-Any unowned command path is passed through to native `aim`.
-
-```bash
-aimx up
-aimx init --help
-aimx runs --help
-aimx runs ls
-```
-
-## Documentation
-
-- [AimQL query language](https://aimstack.readthedocs.io/en/latest/using/search.html)
-  explains the filter syntax used by `aimx query` and `aimx trace`.
-- [textual-image terminal support](https://github.com/lnqs/textual-image/tree/main#support-matrix-1)
-  lists terminals that can render inline images.
-- [CONSTITUTION.md](./CONSTITUTION.md) documents the project safety and scope
-  rules.
-- [specs/](./specs) contains feature specs, plans, contracts, and quickstarts
-  for implemented `aimx` capabilities.
-- [TODO.md](./TODO.md) tracks early roadmap notes.
-
-## Runtime Contract
-
-- `aimx` does not replace the `aim` executable.
-- `aimx` does not modify the installed `aim` package.
-- `aimx` does not mutate `.aim` data during help, version, doctor, query,
-  trace, or passthrough flows.
-- Native Aim remains an external runtime prerequisite for delegated commands.
-- The repository's development dependency on Aim is only for local development
-  and testing convenience.
-
-## Development
-
-The project uses Python 3.12 for local development and supports
-`>=3.10,<3.13` at runtime.
+Local development targets **Python 3.12** (runtime supports `>=3.10,<3.13`):
 
 ```bash
 uv python install 3.12
 uv venv --python 3.12
 uv sync --group dev
 uv run pytest
-```
-
-Useful local checks:
-
-```bash
-uv run aimx --help
-uv run aimx version
-uv run aimx doctor
-uv run aimx query metrics --repo data
-uv run aimx query images --repo data/.aim --json
-uv run aimx query params --repo data --json
 ```
